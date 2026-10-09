@@ -8,7 +8,11 @@
             VerticalAlignment="Top"
             Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
         <StackPanel Spacing="8">
-            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Margin="4,0"/>
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="SemiBold"
+                           VerticalAlignment="Center" Margin="4,0"/>
+                <Button Grid.Column="1" Content="✕" Padding="6,2" Command="{Binding DeleteCommand}"/>
+            </Grid>
 
             <!-- ItemTemplate을 지정하지 않으면 ViewLocator가 CardViewModel -> CardView로 연결한다 -->
             <ItemsControl ItemsSource="{Binding Cards}">

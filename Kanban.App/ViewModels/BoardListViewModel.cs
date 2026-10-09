@@ -1,3 +1,4 @@
+using System;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -6,6 +7,8 @@ namespace Kanban.App.ViewModels;
 
 public partial class BoardListViewModel : ViewModelBase
 {
+    private readonly Action<BoardListViewModel> _onDelete;
+
     [ObservableProperty]
     private string _name;
 
@@ -16,10 +19,14 @@ public partial class BoardListViewModel : ViewModelBase
 
     public ObservableCollection<CardViewModel> Cards { get; } = new();
 
-    public BoardListViewModel(string name)
+    public BoardListViewModel(string name, Action<BoardListViewModel> onDelete)
     {
         _name = name;
+        _onDelete = onDelete;
     }
+
+    [RelayCommand]
+    private void Delete() => _onDelete(this);
 
     public void AddCard(string title, string? description = null)
     {
