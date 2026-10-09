@@ -18,6 +18,17 @@
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
             </ItemsControl>
+
+            <!-- 새 카드 입력: Enter 키 또는 버튼으로 추가 -->
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                <TextBox Grid.Column="0" PlaceholderText="새 카드 제목"
+                         Text="{Binding NewCardTitle}">
+                    <TextBox.KeyBindings>
+                        <KeyBinding Gesture="Enter" Command="{Binding AddNewCardCommand}"/>
+                    </TextBox.KeyBindings>
+                </TextBox>
+                <Button Grid.Column="1" Content="추가" Command="{Binding AddNewCardCommand}"/>
+            </Grid>
         </StackPanel>
     </Border>
 </UserControl>
