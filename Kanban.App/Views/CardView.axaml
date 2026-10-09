@@ -10,14 +10,26 @@
             Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
             <StackPanel Grid.Column="0" Spacing="4">
-                <TextBlock Text="{Binding Title}" TextWrapping="Wrap"/>
+                <!-- 보기 모드 -->
+                <TextBlock Text="{Binding Title}" TextWrapping="Wrap"
+                           IsVisible="{Binding !IsEditing}"/>
+                <!-- 편집 모드: Enter 확정, Esc 취소 -->
+                <TextBox Text="{Binding EditTitle}" IsVisible="{Binding IsEditing}">
+                    <TextBox.KeyBindings>
+                        <KeyBinding Gesture="Enter" Command="{Binding CommitEditCommand}"/>
+                        <KeyBinding Gesture="Escape" Command="{Binding CancelEditCommand}"/>
+                    </TextBox.KeyBindings>
+                </TextBox>
                 <TextBlock Text="{Binding Description}"
                            IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                            FontSize="12" Opacity="0.7" TextWrapping="Wrap"/>
             </StackPanel>
 
-            <Button Grid.Column="1" Content="✕" Padding="6,2" VerticalAlignment="Top"
-                    Command="{Binding DeleteCommand}"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Top">
+                <Button Content="✎" Padding="6,2" Command="{Binding BeginEditCommand}"
+                        IsVisible="{Binding !IsEditing}"/>
+                <Button Content="✕" Padding="6,2" Command="{Binding DeleteCommand}"/>
+            </StackPanel>
         </Grid>
     </Border>
 </UserControl>
