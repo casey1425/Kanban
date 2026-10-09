@@ -23,7 +23,7 @@ public partial class BoardListViewModel : ViewModelBase
 
     public void AddCard(string title, string? description = null)
     {
-        Cards.Add(new CardViewModel(title, description));
+        Cards.Add(new CardViewModel(title, description, card => Cards.Remove(card)));
     }
 
     private bool CanAddCard() => !string.IsNullOrWhiteSpace(NewCardTitle);
