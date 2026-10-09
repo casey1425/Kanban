@@ -1,0 +1,23 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Kanban.App.ViewModels"
+             x:Class="Kanban.App.Views.BoardListView"
+             x:DataType="vm:BoardListViewModel">
+
+    <Border Width="280" Padding="10" CornerRadius="8"
+            VerticalAlignment="Top"
+            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+        <StackPanel Spacing="8">
+            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Margin="4,0"/>
+
+            <!-- ItemTemplate을 지정하지 않으면 ViewLocator가 CardViewModel -> CardView로 연결한다 -->
+            <ItemsControl ItemsSource="{Binding Cards}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Spacing="8"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+        </StackPanel>
+    </Border>
+</UserControl>
