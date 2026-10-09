@@ -1,0 +1,72 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Kanban.App.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="600"
+        x:Class="Kanban.App.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Width="1000" Height="600"
+        Title="Kanban">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <DockPanel>
+        <!-- 상단 보드 제목 -->
+        <Border DockPanel.Dock="Top" Padding="16,12"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+            <TextBlock Text="{Binding BoardTitle}" FontSize="20" FontWeight="SemiBold"/>
+        </Border>
+
+        <!-- 리스트들을 가로로 나열 -->
+        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding Lists}" Margin="12">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="12"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:BoardListViewModel">
+                        <Border Width="280" Padding="10" CornerRadius="8"
+                                VerticalAlignment="Top"
+                                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Margin="4,0"/>
+
+                                <!-- 카드 목록 -->
+                                <ItemsControl ItemsSource="{Binding Cards}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Spacing="8"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:CardViewModel">
+                                            <Border Padding="10" CornerRadius="6"
+                                                    BorderThickness="1"
+                                                    BorderBrush="{DynamicResource SystemControlBackgroundBaseLowBrush}"
+                                                    Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+                                                <StackPanel Spacing="4">
+                                                    <TextBlock Text="{Binding Title}" TextWrapping="Wrap"/>
+                                                    <TextBlock Text="{Binding Description}"
+                                                               IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                                               FontSize="12" Opacity="0.7" TextWrapping="Wrap"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </DockPanel>
+</Window>
