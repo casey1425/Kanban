@@ -1,4 +1,6 @@
 using Avalonia.Controls;
+using Avalonia.Input;
+using Kanban.App.ViewModels;
 
 namespace Kanban.App.Views;
 
@@ -7,5 +9,18 @@ public partial class BoardListView : UserControl
     public BoardListView()
     {
         InitializeComponent();
+
+        AddHandler(DragDrop.DropEvent, OnDrop);
+    }
+
+    // 카드 위가 아닌 리스트의 빈 곳에 놓은 경우: 맨 끝에 추가한다.
+    private void OnDrop(object? sender, DragEventArgs e)
+    {
+        var dragged = e.DataTransfer.TryGetValue(DragFormats.Card);
+        if (dragged is null || DataContext is not BoardListViewModel list)
+            return;
+
+        list.InsertCard(dragged, list.Cards.Count);
+        e.Handled = true;
     }
 }

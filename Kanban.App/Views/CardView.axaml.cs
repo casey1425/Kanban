@@ -1,11 +1,89 @@
+using System;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.VisualTree;
+using Kanban.App.ViewModels;
 
 namespace Kanban.App.Views;
 
 public partial class CardView : UserControl
 {
+    // 이 거리(px) 이상 움직여야 드래그로 본다. 단순 클릭과 구분하기 위함.
+    private const double DragThreshold = 4;
+
+    private PointerPressedEventArgs? _pressedArgs;
+    private Point _pressedPoint;
+
     public CardView()
     {
         InitializeComponent();
+
+        AddHandler(PointerPressedEvent, OnPointerPressed, handledEventsToo: true);
+        AddHandler(PointerMovedEvent, OnPointerMoved, handledEventsToo: true);
+        AddHandler(PointerReleasedEvent, OnPointerReleased, handledEventsToo: true);
+
+        AddHandler(DragDrop.DropEvent, OnDrop);
+    }
+
+    private CardViewModel? Card => DataContext as CardViewModel;
+
+    private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (Card is null || Card.IsEditing)
+            return;
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            return;
+
+        // 카드 안의 버튼(수정, 삭제)을 누른 경우는 드래그를 시작하지 않는다.
+        if (e.Source is Visual source && source.FindAncestorOfType<Button>(includeSelf: true) is not null)
+            return;
+
+        _pressedArgs = e;
+        _pressedPoint = e.GetPosition(this);
+    }
+
+    private async void OnPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_pressedArgs is null || Card is null)
+            return;
+
+        var delta = e.GetPosition(this) - _pressedPoint;
+        if (Math.Abs(delta.X) < DragThreshold && Math.Abs(delta.Y) < DragThreshold)
+            return;
+
+        var args = _pressedArgs;
+        _pressedArgs = null;
+
+        var transfer = new DataTransfer();
+        transfer.Add(DataTransferItem.Create(DragFormats.Card, Card));
+
+        // 드래그가 끝날 때까지(드롭 또는 취소) 대기한다.
+        await DragDrop.DoDragDropAsync(args, transfer, DragDropEffects.Move);
+    }
+
+    private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        _pressedArgs = null;
+    }
+
+    private void OnDrop(object? sender, DragEventArgs e)
+    {
+        var dragged = e.DataTransfer.TryGetValue(DragFormats.Card);
+        if (dragged is null)
+            return;
+
+        // 카드 위의 드롭은 여기서 끝낸다. 막지 않으면 리스트의 "맨 끝에 추가"까지 실행된다.
+        e.Handled = true;
+
+        var target = Card;
+        if (target?.Owner is null || ReferenceEquals(dragged, target))
+            return;
+
+        // 카드의 위쪽 절반에 놓으면 앞에, 아래쪽 절반이면 뒤에 끼워 넣는다.
+        var isLowerHalf = e.GetPosition(this).Y > Bounds.Height / 2;
+        var index = target.Owner.Cards.IndexOf(target) + (isLowerHalf ? 1 : 0);
+
+        target.Owner.InsertCard(dragged, index);
     }
 }

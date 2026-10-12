@@ -2,7 +2,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:Kanban.App.ViewModels"
              x:Class="Kanban.App.Views.CardView"
-             x:DataType="vm:CardViewModel">
+             x:DataType="vm:CardViewModel"
+             DragDrop.AllowDrop="True">
 
     <Border Padding="10" CornerRadius="6"
             BorderThickness="1"
