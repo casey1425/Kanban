@@ -1,4 +1,3 @@
-using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -6,8 +5,6 @@ namespace Kanban.App.ViewModels;
 
 public partial class CardViewModel : ViewModelBase
 {
-    private readonly Action<CardViewModel> _onDelete;
-
     [ObservableProperty]
     private string _title;
 
@@ -21,16 +18,17 @@ public partial class CardViewModel : ViewModelBase
     [ObservableProperty]
     private string _editTitle = string.Empty;
 
-    // 카드는 자신이 속한 리스트를 모른다. 삭제는 리스트가 넘겨준 콜백에 맡긴다.
-    public CardViewModel(string title, string? description, Action<CardViewModel> onDelete)
+    /// <summary>카드가 속한 리스트. 리스트의 Insert/Remove가 관리한다.</summary>
+    public BoardListViewModel? Owner { get; internal set; }
+
+    public CardViewModel(string title, string? description = null)
     {
         _title = title;
         _description = description;
-        _onDelete = onDelete;
     }
 
     [RelayCommand]
-    private void Delete() => _onDelete(this);
+    private void Delete() => Owner?.RemoveCard(this);
 
     [RelayCommand]
     private void BeginEdit()
