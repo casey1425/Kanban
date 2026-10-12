@@ -57,8 +57,13 @@ public partial class CardView : UserControl
         var args = _pressedArgs;
         _pressedArgs = null;
 
+        // 앱 내부용 형식(Card)만 담으면 macOS가 드래그 세션을 만들지 못하고 크래시한다.
+        // 플랫폼이 이해하는 텍스트 형식을 함께 담아야 한다. 같은 항목에 두 형식을 싣는다.
+        var item = DataTransferItem.CreateText(Card.Title);
+        item.Set(DragFormats.Card, Card);
+
         var transfer = new DataTransfer();
-        transfer.Add(DataTransferItem.Create(DragFormats.Card, Card));
+        transfer.Add(item);
 
         // 드래그가 끝날 때까지(드롭 또는 취소) 대기한다. 그동안 원본 카드는 흐리게 보인다.
         Root.Classes.Add("dragging");
