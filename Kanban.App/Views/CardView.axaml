@@ -5,32 +5,51 @@
              x:DataType="vm:CardViewModel"
              DragDrop.AllowDrop="True">
 
-    <Border Padding="10" CornerRadius="6"
-            BorderThickness="1"
-            BorderBrush="{DynamicResource SystemControlBackgroundBaseLowBrush}"
-            Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
-        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-            <StackPanel Grid.Column="0" Spacing="4">
-                <!-- 보기 모드 -->
-                <TextBlock Text="{Binding Title}" TextWrapping="Wrap"
-                           IsVisible="{Binding !IsEditing}"/>
-                <!-- 편집 모드: Enter 확정, Esc 취소 -->
-                <TextBox Text="{Binding EditTitle}" IsVisible="{Binding IsEditing}">
-                    <TextBox.KeyBindings>
-                        <KeyBinding Gesture="Enter" Command="{Binding CommitEditCommand}"/>
-                        <KeyBinding Gesture="Escape" Command="{Binding CancelEditCommand}"/>
-                    </TextBox.KeyBindings>
-                </TextBox>
-                <TextBlock Text="{Binding Description}"
-                           IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                           FontSize="12" Opacity="0.7" TextWrapping="Wrap"/>
-            </StackPanel>
+    <UserControl.Styles>
+        <!-- 드롭 위치 표시선: 코드비하인드가 Root에 drop-above / drop-below 클래스를 붙인다 -->
+        <Style Selector="Grid#Root.drop-above Rectangle.above, Grid#Root.drop-below Rectangle.below">
+            <Setter Property="Fill">
+                <SolidColorBrush Color="{DynamicResource SystemAccentColor}"/>
+            </Setter>
+        </Style>
+        <!-- 드래그 중인 원본 카드는 흐리게 -->
+        <Style Selector="Grid#Root.dragging">
+            <Setter Property="Opacity" Value="0.4"/>
+        </Style>
+    </UserControl.Styles>
 
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Top">
-                <Button Content="✎" Padding="6,2" Command="{Binding BeginEditCommand}"
-                        IsVisible="{Binding !IsEditing}"/>
-                <Button Content="✕" Padding="6,2" Command="{Binding DeleteCommand}"/>
-            </StackPanel>
-        </Grid>
-    </Border>
+    <Grid x:Name="Root" RowDefinitions="3,Auto,3">
+        <Rectangle Grid.Row="0" Classes="above" RadiusX="1.5" RadiusY="1.5"/>
+
+        <Border Grid.Row="1" Padding="10" CornerRadius="6"
+                BorderThickness="1"
+                BorderBrush="{DynamicResource SystemControlBackgroundBaseLowBrush}"
+                Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                <StackPanel Grid.Column="0" Spacing="4">
+                    <!-- 보기 모드 -->
+                    <TextBlock Text="{Binding Title}" TextWrapping="Wrap"
+                               IsVisible="{Binding !IsEditing}"/>
+                    <!-- 편집 모드: Enter 확정, Esc 취소 -->
+                    <TextBox Text="{Binding EditTitle}" IsVisible="{Binding IsEditing}">
+                        <TextBox.KeyBindings>
+                            <KeyBinding Gesture="Enter" Command="{Binding CommitEditCommand}"/>
+                            <KeyBinding Gesture="Escape" Command="{Binding CancelEditCommand}"/>
+                        </TextBox.KeyBindings>
+                    </TextBox>
+                    <TextBlock Text="{Binding Description}"
+                               IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                               FontSize="12" Opacity="0.7" TextWrapping="Wrap"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Top">
+                    <Button Content="✎" Padding="6,2" Command="{Binding BeginEditCommand}"
+                            IsVisible="{Binding !IsEditing}"/>
+                    <Button Content="✕" Padding="6,2" Command="{Binding DeleteCommand}"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Rectangle Grid.Row="2" Classes="below" RadiusX="1.5" RadiusY="1.5"/>
+    </Grid>
 </UserControl>

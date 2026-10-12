@@ -10,7 +10,14 @@ public partial class BoardListView : UserControl
     {
         InitializeComponent();
 
+        AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DropEvent, OnDrop);
+    }
+
+    private void OnDragOver(object? sender, DragEventArgs e)
+    {
+        var isCard = e.DataTransfer.TryGetValue(DragFormats.Card) is not null;
+        e.DragEffects = isCard ? DragDropEffects.Move : DragDropEffects.None;
     }
 
     // 카드 위가 아닌 리스트의 빈 곳에 놓은 경우: 맨 끝에 추가한다.

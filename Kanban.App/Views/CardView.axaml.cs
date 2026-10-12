@@ -23,6 +23,8 @@ public partial class CardView : UserControl
         AddHandler(PointerMovedEvent, OnPointerMoved, handledEventsToo: true);
         AddHandler(PointerReleasedEvent, OnPointerReleased, handledEventsToo: true);
 
+        AddHandler(DragDrop.DragOverEvent, OnDragOver);
+        AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
         AddHandler(DragDrop.DropEvent, OnDrop);
     }
 
@@ -58,8 +60,48 @@ public partial class CardView : UserControl
         var transfer = new DataTransfer();
         transfer.Add(DataTransferItem.Create(DragFormats.Card, Card));
 
-        // 드래그가 끝날 때까지(드롭 또는 취소) 대기한다.
-        await DragDrop.DoDragDropAsync(args, transfer, DragDropEffects.Move);
+        // 드래그가 끝날 때까지(드롭 또는 취소) 대기한다. 그동안 원본 카드는 흐리게 보인다.
+        Root.Classes.Add("dragging");
+        try
+        {
+            await DragDrop.DoDragDropAsync(args, transfer, DragDropEffects.Move);
+        }
+        finally
+        {
+            Root.Classes.Remove("dragging");
+        }
+    }
+
+    private void OnDragOver(object? sender, DragEventArgs e)
+    {
+        var dragged = e.DataTransfer.TryGetValue(DragFormats.Card);
+        if (dragged is null)
+        {
+            e.DragEffects = DragDropEffects.None;
+            return;
+        }
+
+        e.DragEffects = DragDropEffects.Move;
+        e.Handled = true;
+
+        // 자기 자신 위에서는 표시선을 보이지 않는다.
+        if (ReferenceEquals(dragged, Card))
+        {
+            ClearDropIndicator();
+            return;
+        }
+
+        var isLowerHalf = e.GetPosition(this).Y > Bounds.Height / 2;
+        Root.Classes.Set("drop-above", !isLowerHalf);
+        Root.Classes.Set("drop-below", isLowerHalf);
+    }
+
+    private void OnDragLeave(object? sender, DragEventArgs e) => ClearDropIndicator();
+
+    private void ClearDropIndicator()
+    {
+        Root.Classes.Remove("drop-above");
+        Root.Classes.Remove("drop-below");
     }
 
     private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
@@ -69,6 +111,8 @@ public partial class CardView : UserControl
 
     private void OnDrop(object? sender, DragEventArgs e)
     {
+        ClearDropIndicator();
+
         var dragged = e.DataTransfer.TryGetValue(DragFormats.Card);
         if (dragged is null)
             return;
