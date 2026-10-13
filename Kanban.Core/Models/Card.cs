@@ -19,4 +19,6 @@ public class Card
     public BoardList? List { get; set; }
 
     public List<Label> Labels { get; set; } = new();
+
+    public List<ChecklistItem> ChecklistItems { get; set; } = new();
 }

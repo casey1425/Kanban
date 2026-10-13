@@ -25,6 +25,12 @@ public interface IBoardRepository
     /// <summary>카드에 붙은 라벨을 주어진 목록으로 교체한다.</summary>
     Task SetCardLabelsAsync(int cardId, IReadOnlyCollection<int> labelIds, CancellationToken ct = default);
 
+    Task<ChecklistItem> AddChecklistItemAsync(int cardId, string text, CancellationToken ct = default);
+
+    Task SetChecklistItemDoneAsync(int itemId, bool isDone, CancellationToken ct = default);
+
+    Task DeleteChecklistItemAsync(int itemId, CancellationToken ct = default);
+
     Task DeleteCardAsync(int cardId, CancellationToken ct = default);
 
     /// <summary>주어진 리스트들에 대해 카드의 소속 리스트와 순서를 한 번에 저장한다.</summary>

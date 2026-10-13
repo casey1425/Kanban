@@ -60,6 +60,22 @@ public partial class CardViewModel : ViewModelBase
 
     public bool HasLabels => Labels.Count > 0;
 
+    public ObservableCollection<ChecklistItemViewModel> Checklist { get; } = new();
+
+    public bool HasChecklist => Checklist.Count > 0;
+
+    public int ChecklistTotalCount => Checklist.Count;
+
+    public int ChecklistDoneCount => Checklist.Count(i => i.IsDone);
+
+    public string ChecklistSummary => $"{ChecklistDoneCount}/{ChecklistTotalCount}";
+
+    public bool IsChecklistComplete => HasChecklist && ChecklistDoneCount == ChecklistTotalCount;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AddChecklistItemCommand))]
+    private string _newChecklistText = string.Empty;
+
     /// <summary>선택 가능한 모든 라벨 칩(상세 패널에서 켜고 끈다).</summary>
     public IReadOnlyList<LabelOptionViewModel> LabelOptions { get; }
 
@@ -77,6 +93,42 @@ public partial class CardViewModel : ViewModelBase
             .Select(l => new LabelOptionViewModel(l, selectedIds.Contains(l.Id), OnLabelToggledAsync))
             .ToList();
         RefreshLabels();
+
+        foreach (var item in model.ChecklistItems.OrderBy(i => i.Position))
+            Checklist.Add(CreateChecklistItem(item));
+    }
+
+    private ChecklistItemViewModel CreateChecklistItem(ChecklistItem model) =>
+        new(model, _repository, NotifyChecklistChanged, RemoveChecklistItemAsync);
+
+    // 항목이 추가/삭제/체크될 때 요약(2/5 등)을 다시 그리게 한다.
+    private void NotifyChecklistChanged()
+    {
+        OnPropertyChanged(nameof(HasChecklist));
+        OnPropertyChanged(nameof(ChecklistTotalCount));
+        OnPropertyChanged(nameof(ChecklistDoneCount));
+        OnPropertyChanged(nameof(ChecklistSummary));
+        OnPropertyChanged(nameof(IsChecklistComplete));
+    }
+
+    private bool CanAddChecklistItem() => !string.IsNullOrWhiteSpace(NewChecklistText);
+
+    [RelayCommand(CanExecute = nameof(CanAddChecklistItem))]
+    private async Task AddChecklistItemAsync()
+    {
+        var text = NewChecklistText.Trim();
+        NewChecklistText = string.Empty;
+
+        var model = await _repository.AddChecklistItemAsync(Id, text);
+        Checklist.Add(CreateChecklistItem(model));
+        NotifyChecklistChanged();
+    }
+
+    private async Task RemoveChecklistItemAsync(ChecklistItemViewModel item)
+    {
+        await _repository.DeleteChecklistItemAsync(item.Id);
+        Checklist.Remove(item);
+        NotifyChecklistChanged();
     }
 
     private void RefreshLabels()

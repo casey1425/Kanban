@@ -81,6 +81,33 @@ namespace Kanban.Data.Migrations
                     b.ToTable("Cards");
                 });
 
+            modelBuilder.Entity("Kanban.Core.Models.ChecklistItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("CardId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsDone")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CardId");
+
+                    b.ToTable("ChecklistItems");
+                });
+
             modelBuilder.Entity("Kanban.Core.Models.Label", b =>
                 {
                     b.Property<int>("Id")
@@ -166,9 +193,25 @@ namespace Kanban.Data.Migrations
                     b.Navigation("List");
                 });
 
+            modelBuilder.Entity("Kanban.Core.Models.ChecklistItem", b =>
+                {
+                    b.HasOne("Kanban.Core.Models.Card", "Card")
+                        .WithMany("ChecklistItems")
+                        .HasForeignKey("CardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Card");
+                });
+
             modelBuilder.Entity("Kanban.Core.Models.BoardList", b =>
                 {
                     b.Navigation("Cards");
+                });
+
+            modelBuilder.Entity("Kanban.Core.Models.Card", b =>
+                {
+                    b.Navigation("ChecklistItems");
                 });
 #pragma warning restore 612, 618
         }

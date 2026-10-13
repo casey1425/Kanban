@@ -15,6 +15,8 @@ public class KanbanDbContext : DbContext
 
     public DbSet<Label> Labels => Set<Label>();
 
+    public DbSet<ChecklistItem> ChecklistItems => Set<ChecklistItem>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<BoardList>(e =>
@@ -31,6 +33,15 @@ public class KanbanDbContext : DbContext
             e.Property(c => c.Title).IsRequired().HasMaxLength(200);
             e.HasIndex(c => new { c.ListId, c.Position });
             e.HasMany(c => c.Labels).WithMany(l => l.Cards); // 다대다: 조인 테이블은 EF가 만든다.
+        });
+
+        modelBuilder.Entity<ChecklistItem>(e =>
+        {
+            e.Property(i => i.Text).IsRequired().HasMaxLength(200);
+            e.HasOne(i => i.Card)
+                .WithMany(c => c.ChecklistItems)
+                .HasForeignKey(i => i.CardId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Label>(e =>

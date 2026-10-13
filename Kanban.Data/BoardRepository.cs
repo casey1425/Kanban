@@ -30,6 +30,8 @@ public sealed class BoardRepository : IBoardRepository
             .AsNoTracking()
             .Include(l => l.Cards.OrderBy(c => c.Position))
                 .ThenInclude(c => c.Labels.OrderBy(x => x.Id))
+            .Include(l => l.Cards)
+                .ThenInclude(c => c.ChecklistItems.OrderBy(i => i.Position))
             .OrderBy(l => l.Position)
             .ToListAsync(ct);
         return lists;
@@ -102,6 +104,32 @@ public sealed class BoardRepository : IBoardRepository
         card.Labels.Clear();
         card.Labels.AddRange(labels);
         await db.SaveChangesAsync(ct);
+    }
+
+    public async Task<ChecklistItem> AddChecklistItemAsync(int cardId, string text, CancellationToken ct = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(ct);
+        var items = db.ChecklistItems.Where(i => i.CardId == cardId);
+        var nextPosition = await items.AnyAsync(ct) ? await items.MaxAsync(i => i.Position, ct) + 1 : 0;
+
+        var item = new ChecklistItem { CardId = cardId, Text = text, Position = nextPosition };
+        db.ChecklistItems.Add(item);
+        await db.SaveChangesAsync(ct);
+        return item;
+    }
+
+    public async Task SetChecklistItemDoneAsync(int itemId, bool isDone, CancellationToken ct = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(ct);
+        await db.ChecklistItems
+            .Where(i => i.Id == itemId)
+            .ExecuteUpdateAsync(s => s.SetProperty(i => i.IsDone, isDone), ct);
+    }
+
+    public async Task DeleteChecklistItemAsync(int itemId, CancellationToken ct = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(ct);
+        await db.ChecklistItems.Where(i => i.Id == itemId).ExecuteDeleteAsync(ct);
     }
 
     public async Task DeleteCardAsync(int cardId, CancellationToken ct = default)

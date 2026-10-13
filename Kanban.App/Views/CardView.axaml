@@ -44,9 +44,14 @@
                     <TextBlock Text="{Binding Description}"
                                IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                FontSize="12" Opacity="0.7" TextWrapping="Wrap"/>
-                    <TextBlock Classes="due" Classes.overdue="{Binding IsOverdue}"
-                               Text="{Binding DueDateText, StringFormat='📅 {0}'}"
-                               IsVisible="{Binding HasDueDate}" FontSize="12"/>
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <TextBlock Classes="due" Classes.overdue="{Binding IsOverdue}"
+                                   Text="{Binding DueDateText, StringFormat='📅 {0}'}"
+                                   IsVisible="{Binding HasDueDate}" FontSize="12"/>
+                        <TextBlock Text="{Binding ChecklistSummary, StringFormat='☑ {0}'}"
+                                   IsVisible="{Binding HasChecklist}" FontSize="12"
+                                   Opacity="0.8"/>
+                    </StackPanel>
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Top">

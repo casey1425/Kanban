@@ -19,7 +19,8 @@
 
     <Border Width="460" Padding="20" CornerRadius="10"
             Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
-        <StackPanel Spacing="14">
+        <ScrollViewer MaxHeight="520">
+        <StackPanel Spacing="14" Margin="0,0,12,0">
             <TextBox Text="{Binding Card.Title}" FontSize="18" FontWeight="SemiBold"/>
 
             <StackPanel Spacing="4">
@@ -57,7 +58,46 @@
                 </ItemsControl>
             </StackPanel>
 
+            <StackPanel Spacing="6">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="체크리스트" Opacity="0.7"/>
+                    <TextBlock Text="{Binding Card.ChecklistSummary}"
+                               IsVisible="{Binding Card.HasChecklist}" Opacity="0.7"/>
+                </StackPanel>
+
+                <ProgressBar Minimum="0" Height="6"
+                             Maximum="{Binding Card.ChecklistTotalCount}"
+                             Value="{Binding Card.ChecklistDoneCount}"
+                             IsVisible="{Binding Card.HasChecklist}"/>
+
+                <ItemsControl ItemsSource="{Binding Card.Checklist}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ChecklistItemViewModel">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <CheckBox Grid.Column="0" Content="{Binding Text}"
+                                          IsChecked="{Binding IsDone}"
+                                          Command="{Binding ToggleCommand}"/>
+                                <Button Grid.Column="1" Content="✕" Padding="6,2"
+                                        VerticalAlignment="Center"
+                                        Command="{Binding DeleteCommand}"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                    <TextBox Grid.Column="0" PlaceholderText="항목 추가"
+                             Text="{Binding Card.NewChecklistText}">
+                        <TextBox.KeyBindings>
+                            <KeyBinding Gesture="Enter" Command="{Binding Card.AddChecklistItemCommand}"/>
+                        </TextBox.KeyBindings>
+                    </TextBox>
+                    <Button Grid.Column="1" Content="추가" Command="{Binding Card.AddChecklistItemCommand}"/>
+                </Grid>
+            </StackPanel>
+
             <Button Content="닫기" HorizontalAlignment="Right" Command="{Binding CloseCommand}"/>
         </StackPanel>
+        </ScrollViewer>
     </Border>
 </UserControl>
