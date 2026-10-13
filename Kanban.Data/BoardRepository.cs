@@ -80,7 +80,8 @@ public sealed class BoardRepository : IBoardRepository
             .Where(c => c.Id == card.Id)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(c => c.Title, card.Title)
-                .SetProperty(c => c.Description, card.Description), ct);
+                .SetProperty(c => c.Description, card.Description)
+                .SetProperty(c => c.DueDate, card.DueDate), ct);
     }
 
     public async Task DeleteCardAsync(int cardId, CancellationToken ct = default)

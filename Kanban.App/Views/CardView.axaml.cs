@@ -111,7 +111,12 @@ public partial class CardView : UserControl
 
     private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
+        // 누른 채로 움직이지 않고 뗐다면 "클릭"이다. 상세 패널을 연다.
+        var wasClick = _pressedArgs is not null;
         _pressedArgs = null;
+
+        if (wasClick)
+            Card?.OpenDetailCommand.Execute(null);
     }
 
     private async void OnDrop(object? sender, DragEventArgs e)

@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using Kanban.App.Messages;
 using Kanban.Core;
 using Kanban.Core.Models;
 
@@ -25,10 +27,20 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private string? _errorMessage;
 
+    /// <summary>열려 있는 카드 상세 패널. null이면 닫혀 있다.</summary>
+    [ObservableProperty]
+    private CardDetailViewModel? _detail;
+
     public MainWindowViewModel(IBoardRepository repository)
     {
         _repository = repository;
+
+        WeakReferenceMessenger.Default.Register<MainWindowViewModel, OpenCardRequested>(
+            this, (vm, message) => vm.Detail = new CardDetailViewModel(message.Card, () => vm.Detail = null));
     }
+
+    [RelayCommand]
+    private void CloseDetail() => Detail?.CloseCommand.Execute(null);
 
     /// <summary>DB를 준비하고 저장된 보드를 불러온다. 처음 실행이면 기본 리스트를 만든다.</summary>
     public async Task InitializeAsync()

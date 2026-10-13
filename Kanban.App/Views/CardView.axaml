@@ -12,6 +12,10 @@
                 <SolidColorBrush Color="{DynamicResource SystemAccentColor}"/>
             </Setter>
         </Style>
+        <Style Selector="TextBlock.due.overdue">
+            <Setter Property="Foreground" Value="#C42B1C"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
         <!-- 드래그 중인 원본 카드는 흐리게 -->
         <Style Selector="Grid#Root.dragging">
             <Setter Property="Opacity" Value="0.4"/>
@@ -40,6 +44,9 @@
                     <TextBlock Text="{Binding Description}"
                                IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                FontSize="12" Opacity="0.7" TextWrapping="Wrap"/>
+                    <TextBlock Classes="due" Classes.overdue="{Binding IsOverdue}"
+                               Text="{Binding DueDateText, StringFormat='📅 {0}'}"
+                               IsVisible="{Binding HasDueDate}" FontSize="12"/>
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Top">

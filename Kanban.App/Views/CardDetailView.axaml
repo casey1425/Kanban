@@ -1,0 +1,31 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Kanban.App.ViewModels"
+             x:Class="Kanban.App.Views.CardDetailView"
+             x:DataType="vm:CardDetailViewModel">
+
+    <Border Width="460" Padding="20" CornerRadius="10"
+            Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+        <StackPanel Spacing="14">
+            <TextBox Text="{Binding Card.Title}" FontSize="18" FontWeight="SemiBold"/>
+
+            <StackPanel Spacing="4">
+                <TextBlock Text="설명" Opacity="0.7"/>
+                <TextBox Text="{Binding Card.Description}"
+                         AcceptsReturn="True" TextWrapping="Wrap"
+                         MinHeight="90" MaxHeight="200"/>
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+                <TextBlock Text="마감일" Opacity="0.7"/>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <CalendarDatePicker SelectedDate="{Binding Card.DueDateTime}"/>
+                    <Button Content="지우기" Command="{Binding ClearDueDateCommand}"
+                            IsVisible="{Binding Card.HasDueDate}"/>
+                </StackPanel>
+            </StackPanel>
+
+            <Button Content="닫기" HorizontalAlignment="Right" Command="{Binding CloseCommand}"/>
+        </StackPanel>
+    </Border>
+</UserControl>

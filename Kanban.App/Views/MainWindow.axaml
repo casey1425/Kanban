@@ -10,6 +10,7 @@
         Width="1000" Height="600"
         Title="Kanban">
 
+    <Grid>
     <DockPanel>
         <!-- 상단 보드 제목 -->
         <Border DockPanel.Dock="Top" Padding="16,12"
@@ -44,4 +45,12 @@
             </ItemsControl>
         </ScrollViewer>
     </DockPanel>
+
+    <!-- 카드 상세 패널: Detail이 있을 때만 보인다. 배경을 누르면 닫힌다. -->
+    <Grid IsVisible="{Binding Detail, Converter={x:Static ObjectConverters.IsNotNull}}">
+        <Border Background="#99000000" PointerPressed="OnBackdropPressed"/>
+        <ContentControl Content="{Binding Detail}"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    </Grid>
+    </Grid>
 </Window>
