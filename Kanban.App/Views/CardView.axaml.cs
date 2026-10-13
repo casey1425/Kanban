@@ -114,7 +114,7 @@ public partial class CardView : UserControl
         _pressedArgs = null;
     }
 
-    private void OnDrop(object? sender, DragEventArgs e)
+    private async void OnDrop(object? sender, DragEventArgs e)
     {
         ClearDropIndicator();
 
@@ -133,6 +133,6 @@ public partial class CardView : UserControl
         var isLowerHalf = e.GetPosition(this).Y > Bounds.Height / 2;
         var index = target.Owner.Cards.IndexOf(target) + (isLowerHalf ? 1 : 0);
 
-        target.Owner.InsertCard(dragged, index);
+        await target.Owner.MoveCardHereAsync(dragged, index);
     }
 }

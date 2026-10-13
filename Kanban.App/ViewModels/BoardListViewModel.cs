@@ -1,13 +1,21 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Kanban.Core;
+using Kanban.Core.Models;
 
 namespace Kanban.App.ViewModels;
 
 public partial class BoardListViewModel : ViewModelBase
 {
-    private readonly Action<BoardListViewModel> _onDelete;
+    private readonly IBoardRepository _repository;
+    private readonly Action<BoardListViewModel> _onDeleted;
+
+    public int Id { get; }
 
     [ObservableProperty]
     private string _name;
@@ -19,22 +27,69 @@ public partial class BoardListViewModel : ViewModelBase
 
     public ObservableCollection<CardViewModel> Cards { get; } = new();
 
-    public BoardListViewModel(string name, Action<BoardListViewModel> onDelete)
+    public BoardListViewModel(BoardList model, IBoardRepository repository, Action<BoardListViewModel> onDeleted)
     {
-        _name = name;
-        _onDelete = onDelete;
+        _repository = repository;
+        _onDeleted = onDeleted;
+        Id = model.Id;
+        _name = model.Name;
+
+        foreach (var card in model.Cards.OrderBy(c => c.Position))
+            AddCardFromModel(card);
+    }
+
+    private void AddCardFromModel(Card model)
+    {
+        var card = new CardViewModel(model, _repository) { Owner = this };
+        Cards.Add(card);
     }
 
     [RelayCommand]
-    private void Delete() => _onDelete(this);
-
-    public void AddCard(string title, string? description = null)
+    private async Task DeleteAsync()
     {
-        InsertCard(new CardViewModel(title, description), Cards.Count);
+        await _repository.DeleteListAsync(Id);
+        _onDeleted(this);
+    }
+
+    private bool CanAddNewCard() => !string.IsNullOrWhiteSpace(NewCardTitle);
+
+    [RelayCommand(CanExecute = nameof(CanAddNewCard))]
+    private async Task AddNewCardAsync()
+    {
+        var title = NewCardTitle.Trim();
+        NewCardTitle = string.Empty;
+
+        var model = await _repository.AddCardAsync(Id, title, description: null);
+        AddCardFromModel(model);
+    }
+
+    public async Task RemoveCardAsync(CardViewModel card)
+    {
+        await _repository.DeleteCardAsync(card.Id);
+        RemoveCard(card);
     }
 
     /// <summary>
-    /// 카드를 이 리스트의 index 위치에 넣는다.
+    /// 카드를 이 리스트의 index 위치로 옮기고(화면), 영향받은 리스트의 순서를 저장한다(DB).
+    /// 화면 먼저 바꾸므로 드롭 직후 바로 반영된다.
+    /// </summary>
+    public async Task MoveCardHereAsync(CardViewModel card, int index)
+    {
+        var source = card.Owner;
+        InsertCard(card, index);
+
+        var orders = new List<ListCardOrder> { OrderOf(this) };
+        if (source is not null && source != this)
+            orders.Add(OrderOf(source));
+
+        await _repository.SaveCardOrderAsync(orders);
+    }
+
+    private static ListCardOrder OrderOf(BoardListViewModel list) =>
+        new(list.Id, list.Cards.Select(c => c.Id).ToList());
+
+    /// <summary>
+    /// 카드를 이 리스트의 index 위치에 넣는다(화면 상태만 바꾼다).
     /// 다른 리스트에 있던 카드면 그쪽에서 빼 오고, 같은 리스트면 순서만 바꾼다.
     /// index는 "이동 전" 기준 삽입 위치이다. 범위를 벗어나면 보정한다.
     /// </summary>
@@ -61,14 +116,5 @@ public partial class BoardListViewModel : ViewModelBase
     {
         if (Cards.Remove(card))
             card.Owner = null;
-    }
-
-    private bool CanAddNewCard() => !string.IsNullOrWhiteSpace(NewCardTitle);
-
-    [RelayCommand(CanExecute = nameof(CanAddNewCard))]
-    private void AddNewCard()
-    {
-        AddCard(NewCardTitle.Trim());
-        NewCardTitle = string.Empty;
     }
 }

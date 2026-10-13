@@ -1,10 +1,17 @@
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Kanban.Core;
+using Kanban.Core.Models;
 
 namespace Kanban.App.ViewModels;
 
 public partial class CardViewModel : ViewModelBase
 {
+    private readonly IBoardRepository _repository;
+
+    public int Id { get; }
+
     [ObservableProperty]
     private string _title;
 
@@ -21,14 +28,27 @@ public partial class CardViewModel : ViewModelBase
     /// <summary>카드가 속한 리스트. 리스트의 Insert/Remove가 관리한다.</summary>
     public BoardListViewModel? Owner { get; internal set; }
 
-    public CardViewModel(string title, string? description = null)
+    public CardViewModel(Card model, IBoardRepository repository)
     {
-        _title = title;
-        _description = description;
+        _repository = repository;
+        Id = model.Id;
+        _title = model.Title;
+        _description = model.Description;
     }
 
+    private Card ToModel() => new()
+    {
+        Id = Id,
+        Title = Title,
+        Description = Description,
+    };
+
     [RelayCommand]
-    private void Delete() => Owner?.RemoveCard(this);
+    private async Task DeleteAsync()
+    {
+        if (Owner is not null)
+            await Owner.RemoveCardAsync(this);
+    }
 
     [RelayCommand]
     private void BeginEdit()
@@ -38,11 +58,14 @@ public partial class CardViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void CommitEdit()
+    private async Task CommitEditAsync()
     {
-        if (!string.IsNullOrWhiteSpace(EditTitle))
-            Title = EditTitle.Trim();
         IsEditing = false;
+        if (string.IsNullOrWhiteSpace(EditTitle))
+            return;
+
+        Title = EditTitle.Trim();
+        await _repository.UpdateCardAsync(ToModel());
     }
 
     [RelayCommand]

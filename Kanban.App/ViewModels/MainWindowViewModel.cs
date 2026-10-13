@@ -1,11 +1,18 @@
+using System;
 using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Kanban.Core;
+using Kanban.Core.Models;
 
 namespace Kanban.App.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
+    private readonly IBoardRepository _repository;
+
     public string BoardTitle { get; } = "My Kanban Board";
 
     public ObservableCollection<BoardListViewModel> Lists { get; } = new();
@@ -14,35 +21,57 @@ public partial class MainWindowViewModel : ViewModelBase
     [NotifyCanExecuteChangedFor(nameof(AddNewListCommand))]
     private string _newListName = string.Empty;
 
-    public MainWindowViewModel()
+    /// <summary>데이터를 불러오지 못했을 때 화면 상단에 보여 줄 메시지.</summary>
+    [ObservableProperty]
+    private string? _errorMessage;
+
+    public MainWindowViewModel(IBoardRepository repository)
     {
-        // 하드코딩된 샘플 데이터. 이후 단계에서 DB 로딩으로 대체한다.
-        var todo = AddList("To Do");
-        todo.AddCard("Avalonia 공부하기", "XAML, 바인딩, 스타일");
-        todo.AddCard("README 작성");
-        todo.AddCard("드래그 앤 드롭 조사");
-
-        var doing = AddList("In Progress");
-        doing.AddCard("보드 화면 레이아웃", "ItemsControl + DataTemplate");
-
-        var done = AddList("Done");
-        done.AddCard("Rider 설치");
-        done.AddCard("프로젝트 생성");
+        _repository = repository;
     }
 
-    private BoardListViewModel AddList(string name)
+    /// <summary>DB를 준비하고 저장된 보드를 불러온다. 처음 실행이면 기본 리스트를 만든다.</summary>
+    public async Task InitializeAsync()
     {
-        var list = new BoardListViewModel(name, l => Lists.Remove(l));
-        Lists.Add(list);
-        return list;
+        try
+        {
+            await _repository.InitializeAsync();
+
+            var lists = await _repository.GetListsAsync();
+            if (lists.Count == 0)
+                lists = await SeedDefaultBoardAsync();
+
+            foreach (var list in lists)
+                Lists.Add(CreateListViewModel(list));
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"데이터를 불러오지 못했어요: {ex.Message}";
+        }
     }
+
+    private async Task<System.Collections.Generic.IReadOnlyList<BoardList>> SeedDefaultBoardAsync()
+    {
+        var todo = await _repository.AddListAsync("To Do");
+        await _repository.AddListAsync("In Progress");
+        await _repository.AddListAsync("Done");
+        await _repository.AddCardAsync(todo.Id, "카드를 드래그해서 옮겨 보세요", "✎로 제목을 수정하고 ✕로 삭제할 수 있어요");
+
+        return await _repository.GetListsAsync();
+    }
+
+    private BoardListViewModel CreateListViewModel(BoardList model) =>
+        new(model, _repository, list => Lists.Remove(list));
 
     private bool CanAddNewList() => !string.IsNullOrWhiteSpace(NewListName);
 
     [RelayCommand(CanExecute = nameof(CanAddNewList))]
-    private void AddNewList()
+    private async Task AddNewListAsync()
     {
-        AddList(NewListName.Trim());
+        var name = NewListName.Trim();
         NewListName = string.Empty;
+
+        var model = await _repository.AddListAsync(name);
+        Lists.Add(CreateListViewModel(model));
     }
 }

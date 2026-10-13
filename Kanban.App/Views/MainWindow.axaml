@@ -10,10 +10,6 @@
         Width="1000" Height="600"
         Title="Kanban">
 
-    <Design.DataContext>
-        <vm:MainWindowViewModel/>
-    </Design.DataContext>
-
     <DockPanel>
         <!-- 상단 보드 제목 -->
         <Border DockPanel.Dock="Top" Padding="16,12"
@@ -29,6 +25,12 @@
                 </TextBox>
                 <Button Grid.Column="2" Content="리스트 추가" Command="{Binding AddNewListCommand}"/>
             </Grid>
+        </Border>
+
+        <!-- 데이터 로딩 실패 시 안내 -->
+        <Border DockPanel.Dock="Top" Padding="16,8" Background="#C42B1C"
+                IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+            <TextBlock Text="{Binding ErrorMessage}" Foreground="White" TextWrapping="Wrap"/>
         </Border>
 
         <!-- 리스트들을 가로로 나열. 각 항목은 ViewLocator가 BoardListView로 그린다 -->
