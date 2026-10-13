@@ -14,6 +14,7 @@ public partial class BoardListViewModel : ViewModelBase
 {
     private readonly IBoardRepository _repository;
     private readonly Action<BoardListViewModel> _onDeleted;
+    private readonly IReadOnlyList<Label> _labels;
 
     public int Id { get; }
 
@@ -27,9 +28,14 @@ public partial class BoardListViewModel : ViewModelBase
 
     public ObservableCollection<CardViewModel> Cards { get; } = new();
 
-    public BoardListViewModel(BoardList model, IBoardRepository repository, Action<BoardListViewModel> onDeleted)
+    public BoardListViewModel(
+        BoardList model,
+        IBoardRepository repository,
+        IReadOnlyList<Label> labels,
+        Action<BoardListViewModel> onDeleted)
     {
         _repository = repository;
+        _labels = labels;
         _onDeleted = onDeleted;
         Id = model.Id;
         _name = model.Name;
@@ -40,7 +46,7 @@ public partial class BoardListViewModel : ViewModelBase
 
     private void AddCardFromModel(Card model)
     {
-        var card = new CardViewModel(model, _repository) { Owner = this };
+        var card = new CardViewModel(model, _repository, _labels) { Owner = this };
         Cards.Add(card);
     }
 

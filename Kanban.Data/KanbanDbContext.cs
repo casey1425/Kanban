@@ -13,6 +13,8 @@ public class KanbanDbContext : DbContext
 
     public DbSet<Card> Cards => Set<Card>();
 
+    public DbSet<Label> Labels => Set<Label>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<BoardList>(e =>
@@ -28,6 +30,22 @@ public class KanbanDbContext : DbContext
         {
             e.Property(c => c.Title).IsRequired().HasMaxLength(200);
             e.HasIndex(c => new { c.ListId, c.Position });
+            e.HasMany(c => c.Labels).WithMany(l => l.Cards); // 다대다: 조인 테이블은 EF가 만든다.
+        });
+
+        modelBuilder.Entity<Label>(e =>
+        {
+            e.Property(l => l.Name).IsRequired().HasMaxLength(30);
+            e.Property(l => l.Color).IsRequired().HasMaxLength(9);
+
+            // 기본 라벨. 라벨 편집 UI가 생기기 전까지는 고정 세트를 쓴다.
+            e.HasData(
+                new Label { Id = 1, Name = "긴급", Color = "#E5484D" },
+                new Label { Id = 2, Name = "중요", Color = "#F76B15" },
+                new Label { Id = 3, Name = "기능", Color = "#3E63DD" },
+                new Label { Id = 4, Name = "버그", Color = "#8E4EC6" },
+                new Label { Id = 5, Name = "문서", Color = "#30A46C" },
+                new Label { Id = 6, Name = "아이디어", Color = "#B7791F" });
         });
     }
 }

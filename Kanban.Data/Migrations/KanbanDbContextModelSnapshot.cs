@@ -17,6 +17,21 @@ namespace Kanban.Data.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.12");
 
+            modelBuilder.Entity("CardLabel", b =>
+                {
+                    b.Property<int>("CardsId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("LabelsId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("CardsId", "LabelsId");
+
+                    b.HasIndex("LabelsId");
+
+                    b.ToTable("CardLabel");
+                });
+
             modelBuilder.Entity("Kanban.Core.Models.BoardList", b =>
                 {
                     b.Property<int>("Id")
@@ -64,6 +79,80 @@ namespace Kanban.Data.Migrations
                     b.HasIndex("ListId", "Position");
 
                     b.ToTable("Cards");
+                });
+
+            modelBuilder.Entity("Kanban.Core.Models.Label", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .HasMaxLength(9)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Labels");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Color = "#E5484D",
+                            Name = "긴급"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Color = "#F76B15",
+                            Name = "중요"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Color = "#3E63DD",
+                            Name = "기능"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Color = "#8E4EC6",
+                            Name = "버그"
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Color = "#30A46C",
+                            Name = "문서"
+                        },
+                        new
+                        {
+                            Id = 6,
+                            Color = "#B7791F",
+                            Name = "아이디어"
+                        });
+                });
+
+            modelBuilder.Entity("CardLabel", b =>
+                {
+                    b.HasOne("Kanban.Core.Models.Card", null)
+                        .WithMany()
+                        .HasForeignKey("CardsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Kanban.Core.Models.Label", null)
+                        .WithMany()
+                        .HasForeignKey("LabelsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Kanban.Core.Models.Card", b =>

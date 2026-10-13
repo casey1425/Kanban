@@ -29,9 +29,16 @@ public sealed class BoardRepository : IBoardRepository
         var lists = await db.Lists
             .AsNoTracking()
             .Include(l => l.Cards.OrderBy(c => c.Position))
+                .ThenInclude(c => c.Labels.OrderBy(x => x.Id))
             .OrderBy(l => l.Position)
             .ToListAsync(ct);
         return lists;
+    }
+
+    public async Task<IReadOnlyList<Label>> GetLabelsAsync(CancellationToken ct = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(ct);
+        return await db.Labels.AsNoTracking().OrderBy(l => l.Id).ToListAsync(ct);
     }
 
     public async Task<BoardList> AddListAsync(string name, CancellationToken ct = default)
@@ -82,6 +89,19 @@ public sealed class BoardRepository : IBoardRepository
                 .SetProperty(c => c.Title, card.Title)
                 .SetProperty(c => c.Description, card.Description)
                 .SetProperty(c => c.DueDate, card.DueDate), ct);
+    }
+
+    public async Task SetCardLabelsAsync(int cardId, IReadOnlyCollection<int> labelIds, CancellationToken ct = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(ct);
+        var card = await db.Cards.Include(c => c.Labels).FirstOrDefaultAsync(c => c.Id == cardId, ct);
+        if (card is null)
+            return;
+
+        var labels = await db.Labels.Where(l => labelIds.Contains(l.Id)).ToListAsync(ct);
+        card.Labels.Clear();
+        card.Labels.AddRange(labels);
+        await db.SaveChangesAsync(ct);
     }
 
     public async Task DeleteCardAsync(int cardId, CancellationToken ct = default)

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -14,6 +15,7 @@ namespace Kanban.App.ViewModels;
 public partial class MainWindowViewModel : ViewModelBase
 {
     private readonly IBoardRepository _repository;
+    private IReadOnlyList<Label> _labels = Array.Empty<Label>();
 
     public string BoardTitle { get; } = "My Kanban Board";
 
@@ -49,6 +51,8 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             await _repository.InitializeAsync();
 
+            _labels = await _repository.GetLabelsAsync();
+
             var lists = await _repository.GetListsAsync();
             if (lists.Count == 0)
                 lists = await SeedDefaultBoardAsync();
@@ -62,7 +66,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
-    private async Task<System.Collections.Generic.IReadOnlyList<BoardList>> SeedDefaultBoardAsync()
+    private async Task<IReadOnlyList<BoardList>> SeedDefaultBoardAsync()
     {
         var todo = await _repository.AddListAsync("To Do");
         await _repository.AddListAsync("In Progress");
@@ -73,7 +77,7 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     private BoardListViewModel CreateListViewModel(BoardList model) =>
-        new(model, _repository, list => Lists.Remove(list));
+        new(model, _repository, _labels, list => Lists.Remove(list));
 
     private bool CanAddNewList() => !string.IsNullOrWhiteSpace(NewListName);
 

@@ -17,4 +17,6 @@ public class Card
     public int ListId { get; set; }
 
     public BoardList? List { get; set; }
+
+    public List<Label> Labels { get; set; } = new();
 }

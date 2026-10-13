@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -52,7 +55,15 @@ public partial class CardViewModel : ViewModelBase
         set => DueDate = value is { } v ? DateOnly.FromDateTime(v.DateTime) : null;
     }
 
-    public CardViewModel(Card model, IBoardRepository repository)
+    /// <summary>카드에 붙은 라벨(카드 겉면에 표시).</summary>
+    public ObservableCollection<LabelViewModel> Labels { get; } = new();
+
+    public bool HasLabels => Labels.Count > 0;
+
+    /// <summary>선택 가능한 모든 라벨 칩(상세 패널에서 켜고 끈다).</summary>
+    public IReadOnlyList<LabelOptionViewModel> LabelOptions { get; }
+
+    public CardViewModel(Card model, IBoardRepository repository, IReadOnlyList<Label> availableLabels)
     {
         _repository = repository;
         Id = model.Id;
@@ -60,6 +71,27 @@ public partial class CardViewModel : ViewModelBase
         _savedTitle = model.Title;
         _description = model.Description;
         _dueDate = model.DueDate;
+
+        var selectedIds = model.Labels.Select(l => l.Id).ToHashSet();
+        LabelOptions = availableLabels
+            .Select(l => new LabelOptionViewModel(l, selectedIds.Contains(l.Id), OnLabelToggledAsync))
+            .ToList();
+        RefreshLabels();
+    }
+
+    private void RefreshLabels()
+    {
+        Labels.Clear();
+        foreach (var option in LabelOptions.Where(o => o.IsSelected))
+            Labels.Add(new LabelViewModel(new Label { Id = option.Id, Name = option.Name, Color = option.Color }));
+        OnPropertyChanged(nameof(HasLabels));
+    }
+
+    private async Task OnLabelToggledAsync()
+    {
+        RefreshLabels();
+        var ids = LabelOptions.Where(o => o.IsSelected).Select(o => o.Id).ToList();
+        await _repository.SetCardLabelsAsync(Id, ids);
     }
 
     private Card ToModel() => new()

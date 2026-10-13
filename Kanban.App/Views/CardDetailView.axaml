@@ -4,6 +4,19 @@
              x:Class="Kanban.App.Views.CardDetailView"
              x:DataType="vm:CardDetailViewModel">
 
+    <UserControl.Styles>
+        <!-- 라벨 칩: 선택 안 된 상태는 흐리게 -->
+        <Style Selector="Button.chip">
+            <Setter Property="Opacity" Value="0.35"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="10,3"/>
+            <Setter Property="Margin" Value="0,0,6,6"/>
+        </Style>
+        <Style Selector="Button.chip.selected">
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+    </UserControl.Styles>
+
     <Border Width="460" Padding="20" CornerRadius="10"
             Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
         <StackPanel Spacing="14">
@@ -23,6 +36,25 @@
                     <Button Content="지우기" Command="{Binding ClearDueDateCommand}"
                             IsVisible="{Binding Card.HasDueDate}"/>
                 </StackPanel>
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+                <TextBlock Text="라벨" Opacity="0.7"/>
+                <ItemsControl ItemsSource="{Binding Card.LabelOptions}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:LabelOptionViewModel">
+                            <Button Classes="chip" Classes.selected="{Binding IsSelected}"
+                                    Background="{Binding Color}"
+                                    Content="{Binding Name}"
+                                    Command="{Binding ToggleCommand}"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
             </StackPanel>
 
             <Button Content="닫기" HorizontalAlignment="Right" Command="{Binding CloseCommand}"/>

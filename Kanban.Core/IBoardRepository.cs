@@ -11,6 +11,9 @@ public interface IBoardRepository
     /// <summary>모든 리스트를 순서대로, 각 리스트의 카드도 순서대로 가져온다.</summary>
     Task<IReadOnlyList<BoardList>> GetListsAsync(CancellationToken ct = default);
 
+    /// <summary>선택 가능한 모든 라벨.</summary>
+    Task<IReadOnlyList<Label>> GetLabelsAsync(CancellationToken ct = default);
+
     Task<BoardList> AddListAsync(string name, CancellationToken ct = default);
 
     Task DeleteListAsync(int listId, CancellationToken ct = default);
@@ -18,6 +21,9 @@ public interface IBoardRepository
     Task<Card> AddCardAsync(int listId, string title, string? description, CancellationToken ct = default);
 
     Task UpdateCardAsync(Card card, CancellationToken ct = default);
+
+    /// <summary>카드에 붙은 라벨을 주어진 목록으로 교체한다.</summary>
+    Task SetCardLabelsAsync(int cardId, IReadOnlyCollection<int> labelIds, CancellationToken ct = default);
 
     Task DeleteCardAsync(int cardId, CancellationToken ct = default);
 
