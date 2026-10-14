@@ -25,7 +25,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [NotifyCanExecuteChangedFor(nameof(AddNewListCommand))]
     private string _newListName = string.Empty;
 
-    /// <summary>데이터를 불러오지 못했을 때 화면 상단에 보여 줄 메시지.</summary>
+    /// <summary>불러오기/저장 실패 시 화면 상단에 보여 줄 메시지. 사용자가 닫을 수 있다.</summary>
     [ObservableProperty]
     private string? _errorMessage;
 
@@ -39,7 +39,13 @@ public partial class MainWindowViewModel : ViewModelBase
 
         WeakReferenceMessenger.Default.Register<MainWindowViewModel, OpenCardRequested>(
             this, (vm, message) => vm.Detail = new CardDetailViewModel(message.Card, () => vm.Detail = null));
+
+        WeakReferenceMessenger.Default.Register<MainWindowViewModel, ErrorOccurred>(
+            this, (vm, message) => vm.ErrorMessage = message.Message);
     }
+
+    [RelayCommand]
+    private void DismissError() => ErrorMessage = null;
 
     [RelayCommand]
     private void CloseDetail() => Detail?.CloseCommand.Execute(null);
@@ -82,12 +88,15 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool CanAddNewList() => !string.IsNullOrWhiteSpace(NewListName);
 
     [RelayCommand(CanExecute = nameof(CanAddNewList))]
-    private async Task AddNewListAsync()
+    private Task AddNewListAsync()
     {
         var name = NewListName.Trim();
         NewListName = string.Empty;
 
-        var model = await _repository.AddListAsync(name);
-        Lists.Add(CreateListViewModel(model));
+        return RunSafeAsync(async () =>
+        {
+            var model = await _repository.AddListAsync(name);
+            Lists.Add(CreateListViewModel(model));
+        }, "리스트를 추가하지 못했어요");
     }
 }

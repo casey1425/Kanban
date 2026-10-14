@@ -36,10 +36,10 @@ public partial class ChecklistItemViewModel : ViewModelBase
 
     /// <summary>체크박스를 눌렀을 때 호출된다. IsDone은 양방향 바인딩으로 이미 바뀐 상태이다.</summary>
     [RelayCommand]
-    private async Task ToggleAsync()
+    private Task ToggleAsync()
     {
         _onChanged();
-        await _repository.SetChecklistItemDoneAsync(Id, IsDone);
+        return RunSafeAsync(() => _repository.SetChecklistItemDoneAsync(Id, IsDone), "체크 상태를 저장하지 못했어요");
     }
 
     [RelayCommand]

@@ -114,22 +114,25 @@ public partial class CardViewModel : ViewModelBase
     private bool CanAddChecklistItem() => !string.IsNullOrWhiteSpace(NewChecklistText);
 
     [RelayCommand(CanExecute = nameof(CanAddChecklistItem))]
-    private async Task AddChecklistItemAsync()
+    private Task AddChecklistItemAsync()
     {
         var text = NewChecklistText.Trim();
         NewChecklistText = string.Empty;
 
-        var model = await _repository.AddChecklistItemAsync(Id, text);
-        Checklist.Add(CreateChecklistItem(model));
-        NotifyChecklistChanged();
+        return RunSafeAsync(async () =>
+        {
+            var model = await _repository.AddChecklistItemAsync(Id, text);
+            Checklist.Add(CreateChecklistItem(model));
+            NotifyChecklistChanged();
+        }, "체크리스트 항목을 추가하지 못했어요");
     }
 
-    private async Task RemoveChecklistItemAsync(ChecklistItemViewModel item)
+    private Task RemoveChecklistItemAsync(ChecklistItemViewModel item) => RunSafeAsync(async () =>
     {
         await _repository.DeleteChecklistItemAsync(item.Id);
         Checklist.Remove(item);
         NotifyChecklistChanged();
-    }
+    }, "체크리스트 항목을 삭제하지 못했어요");
 
     private void RefreshLabels()
     {
@@ -139,11 +142,11 @@ public partial class CardViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasLabels));
     }
 
-    private async Task OnLabelToggledAsync()
+    private Task OnLabelToggledAsync()
     {
         RefreshLabels();
         var ids = LabelOptions.Where(o => o.IsSelected).Select(o => o.Id).ToList();
-        await _repository.SetCardLabelsAsync(Id, ids);
+        return RunSafeAsync(() => _repository.SetCardLabelsAsync(Id, ids), "라벨을 저장하지 못했어요");
     }
 
     private Card ToModel() => new()
@@ -155,24 +158,24 @@ public partial class CardViewModel : ViewModelBase
     };
 
     /// <summary>제목, 설명, 마감일을 저장한다. 제목을 비워 둔 경우 마지막으로 저장된 제목으로 되돌린다.</summary>
-    public async Task SaveAsync()
+    public Task SaveAsync() => RunSafeAsync(async () =>
     {
         if (string.IsNullOrWhiteSpace(Title))
             Title = _savedTitle;
 
         await _repository.UpdateCardAsync(ToModel());
         _savedTitle = Title;
-    }
+    }, "카드를 저장하지 못했어요");
 
     [RelayCommand]
     private void OpenDetail() => WeakReferenceMessenger.Default.Send(new OpenCardRequested(this));
 
     [RelayCommand]
-    private async Task DeleteAsync()
+    private Task DeleteAsync() => RunSafeAsync(async () =>
     {
         if (Owner is not null)
             await Owner.RemoveCardAsync(this);
-    }
+    }, "카드를 삭제하지 못했어요");
 
     [RelayCommand]
     private void BeginEdit()

@@ -28,10 +28,14 @@
             </Grid>
         </Border>
 
-        <!-- 데이터 로딩 실패 시 안내 -->
+        <!-- 불러오기/저장 실패 안내 -->
         <Border DockPanel.Dock="Top" Padding="16,8" Background="#C42B1C"
                 IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
-            <TextBlock Text="{Binding ErrorMessage}" Foreground="White" TextWrapping="Wrap"/>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <TextBlock Grid.Column="0" Text="{Binding ErrorMessage}" Foreground="White"
+                           TextWrapping="Wrap" VerticalAlignment="Center"/>
+                <Button Grid.Column="1" Content="닫기" Command="{Binding DismissErrorCommand}"/>
+            </Grid>
         </Border>
 
         <!-- 리스트들을 가로로 나열. 각 항목은 ViewLocator가 BoardListView로 그린다 -->
