@@ -1,0 +1,84 @@
+name: Release
+
+# v로 시작하는 태그(예: v0.1.0)를 푸시하면 각 OS용 실행 파일을 만들어 GitHub Release에 올린다.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: Publish (${{ matrix.rid }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, rid: win-x64 }
+          - { os: macos-latest, rid: osx-arm64 }
+          - { os: macos-latest, rid: osx-x64 }
+          - { os: ubuntu-latest, rid: linux-x64 }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Test
+        run: dotnet test --configuration Release
+
+      - name: Publish
+        run: >
+          dotnet publish Kanban.App
+          --configuration Release
+          --runtime ${{ matrix.rid }}
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -p:DebugType=None
+          -p:DebugSymbols=false
+          --output publish/${{ matrix.rid }}
+
+      - name: Package
+        shell: bash
+        working-directory: publish/${{ matrix.rid }}
+        run: |
+          # 압축을 풀어도 실행 권한이 유지되도록 macOS/Linux는 tar.gz를 쓴다.
+          if [ "${{ matrix.rid }}" = "win-x64" ]; then
+            7z a "../../Kanban-${{ matrix.rid }}.zip" .
+          else
+            tar -czf "../../Kanban-${{ matrix.rid }}.tar.gz" .
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Kanban-${{ matrix.rid }}
+          path: |
+            Kanban-${{ matrix.rid }}.zip
+            Kanban-${{ matrix.rid }}.tar.gz
+          if-no-files-found: error
+
+  release:
+    name: Create GitHub Release
+    needs: publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes
