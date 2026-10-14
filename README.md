@@ -13,7 +13,9 @@ Avalonia를 학습하면서 단계별로 기능을 쌓아가는 개인 프로젝
 - [x] 드래그 앤 드롭으로 카드 순서 변경 및 리스트 간 이동
 - [x] SQLite 저장 (앱을 다시 켜도 보드가 유지됨)
 - [x] 카드 상세: 설명, 마감일, 라벨, 체크리스트
-- [ ] 다크 / 라이트 테마, 검색 / 필터
+- [x] 카드 검색(제목·설명·체크리스트)과 라벨 필터
+- [x] 다크 / 라이트 / 시스템 테마 전환(설정 저장)
+- [x] 저장 실패 시 오류 배너 표시
 
 ## 기술 스택
 
@@ -48,7 +50,8 @@ Kanban/
 └── Kanban.App/           # Avalonia UI
     ├── ViewModels/       # MainWindow, BoardList, Card, CardDetail ...
     ├── Views/            # *.axaml
-    ├── Messages/         # ViewModel 간 메시지
+    ├── Messages/         # ViewModel 간 메시지 (OpenCardRequested, ErrorOccurred)
+    ├── Services/         # 설정 저장(JSON)
     └── ViewLocator.cs    # ViewModel → View 자동 연결
 ```
 
@@ -60,7 +63,7 @@ Kanban/
 
 ## 데이터 저장 위치
 
-사용자 데이터 폴더의 `Kanban/kanban.db`에 저장됩니다.
+사용자 데이터 폴더의 `Kanban/` 아래에 저장됩니다. `kanban.db`는 보드 데이터, `settings.json`은 테마 같은 사용자 설정입니다.
 (macOS/Linux: `~/.local/share/Kanban/kanban.db`, Windows: `%LOCALAPPDATA%\Kanban\kanban.db`)
 앱 시작 시 마이그레이션이 자동으로 적용됩니다.
 
@@ -79,5 +82,5 @@ dotnet ef migrations add <이름> --project Kanban.Data --startup-project Kanban
 | 2 | 카드·리스트 추가, 수정, 삭제 (MVVM, Command) | 완료 |
 | 3 | 드래그 앤 드롭 | 완료 |
 | 4 | SQLite(EF Core) 저장, 마감일 / 라벨 / 체크리스트 | 완료 |
-| 5 | 테마, 검색 / 필터, 설정 | 예정 |
+| 5 | 테마, 검색 / 필터, 오류 알림, 설정 | 완료 |
 | 마무리 | 단위 테스트(xUnit), GitHub Actions 크로스플랫폼 빌드, 릴리스 | 예정 |

@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Kanban.App.Messages;
 using Kanban.Core;
+using Kanban.App.Services;
 using Kanban.Core.Models;
 
 namespace Kanban.App.ViewModels;
@@ -15,6 +16,7 @@ namespace Kanban.App.ViewModels;
 public partial class MainWindowViewModel : ViewModelBase
 {
     private readonly IBoardRepository _repository;
+    private readonly ISettingsService _settings;
     private IReadOnlyList<Label> _labels = Array.Empty<Label>();
 
     public string BoardTitle { get; } = "My Kanban Board";
@@ -59,9 +61,44 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private CardDetailViewModel? _detail;
 
-    public MainWindowViewModel(IBoardRepository repository)
+    /// <summary>현재 테마 모드. 바뀌면 설정 파일에 저장하고, 앱(App.axaml.cs)이 실제 테마를 바꾼다.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ThemeLabel))]
+    private ThemeMode _themeMode;
+
+    public string ThemeLabel => ThemeMode switch
+    {
+        ThemeMode.Light => "☀ 라이트",
+        ThemeMode.Dark => "🌙 다크",
+        _ => "🖥 시스템",
+    };
+
+    partial void OnThemeModeChanged(ThemeMode value)
+    {
+        _settings.Current.Theme = value;
+        try
+        {
+            _settings.Save();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"설정을 저장하지 못했어요: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private void CycleTheme() => ThemeMode = ThemeMode switch
+    {
+        ThemeMode.System => ThemeMode.Light,
+        ThemeMode.Light => ThemeMode.Dark,
+        _ => ThemeMode.System,
+    };
+
+    public MainWindowViewModel(IBoardRepository repository, ISettingsService settings)
     {
         _repository = repository;
+        _settings = settings;
+        _themeMode = settings.Current.Theme;
 
         WeakReferenceMessenger.Default.Register<MainWindowViewModel, OpenCardRequested>(
             this, (vm, message) => vm.Detail = new CardDetailViewModel(message.Card, () => vm.Detail = null));

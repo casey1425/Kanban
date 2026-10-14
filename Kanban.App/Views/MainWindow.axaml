@@ -16,16 +16,18 @@
         <Border DockPanel.Dock="Top" Padding="16,12"
                 Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
             <StackPanel Spacing="10">
-                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
                     <TextBlock Grid.Column="0" Text="{Binding BoardTitle}" FontSize="20"
                                FontWeight="SemiBold" VerticalAlignment="Center"/>
-                    <TextBox Grid.Column="1" Width="200" PlaceholderText="새 리스트 이름"
+                    <Button Grid.Column="1" Content="{Binding ThemeLabel}"
+                            Command="{Binding CycleThemeCommand}" Margin="0,0,12,0"/>
+                    <TextBox Grid.Column="2" Width="200" PlaceholderText="새 리스트 이름"
                              Text="{Binding NewListName}">
                         <TextBox.KeyBindings>
                             <KeyBinding Gesture="Enter" Command="{Binding AddNewListCommand}"/>
                         </TextBox.KeyBindings>
                     </TextBox>
-                    <Button Grid.Column="2" Content="리스트 추가" Command="{Binding AddNewListCommand}"/>
+                    <Button Grid.Column="3" Content="리스트 추가" Command="{Binding AddNewListCommand}"/>
                 </Grid>
 
                 <StackPanel Orientation="Horizontal" Spacing="6">
