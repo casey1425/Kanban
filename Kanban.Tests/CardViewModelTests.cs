@@ -25,7 +25,7 @@ public sealed class CardViewModelTests : IDisposable
         var card = app.Lists[0].Cards[0];
 
         card.OpenDetailCommand.Execute(null);
-        card.DueDateTime = new DateTimeOffset(new DateTime(2020, 1, 15));
+        card.DueDateTime = new DateTime(2020, 1, 15);
         await app.Detail!.CloseCommand.ExecuteAsync(null);
 
         var restarted = await _app.StartAsync();

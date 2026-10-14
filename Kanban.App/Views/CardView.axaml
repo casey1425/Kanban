@@ -32,6 +32,23 @@
                 Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
                 <StackPanel Grid.Column="0" Spacing="4">
+                    <!-- 라벨 -->
+                    <ItemsControl ItemsSource="{Binding Labels}" IsVisible="{Binding HasLabels}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:LabelViewModel">
+                                <Border Background="{Binding Color}" CornerRadius="3"
+                                        Padding="6,1" Margin="0,0,4,4">
+                                    <TextBlock Text="{Binding Name}" FontSize="11" Foreground="White"/>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
                     <!-- 보기 모드 -->
                     <TextBlock Text="{Binding Title}" TextWrapping="Wrap"
                                IsVisible="{Binding !IsEditing}"/>

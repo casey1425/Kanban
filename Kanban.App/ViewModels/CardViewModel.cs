@@ -52,11 +52,11 @@ public partial class CardViewModel : ViewModelBase
 
     public bool IsOverdue => DueDate is { } d && d < DateOnly.FromDateTime(DateTime.Today);
 
-    /// <summary>날짜 선택 컨트롤(DateTimeOffset?)과 연결하기 위한 변환용 속성.</summary>
-    public DateTimeOffset? DueDateTime
+    /// <summary>날짜 선택 컨트롤(CalendarDatePicker.SelectedDate, DateTime?)과 연결하기 위한 변환용 속성.</summary>
+    public DateTime? DueDateTime
     {
-        get => DueDate is { } d ? new DateTimeOffset(d.ToDateTime(TimeOnly.MinValue)) : null;
-        set => DueDate = value is { } v ? DateOnly.FromDateTime(v.DateTime) : null;
+        get => DueDate?.ToDateTime(TimeOnly.MinValue);
+        set => DueDate = value is { } v ? DateOnly.FromDateTime(v) : null;
     }
 
     /// <summary>카드에 붙은 라벨(카드 겉면에 표시).</summary>
