@@ -1,9 +1,22 @@
 # Kanban
 
-Avalonia UI와 MVVM 패턴으로 만드는 크로스플랫폼 데스크톱 칸반 보드 앱입니다.
-Avalonia를 학습하면서 단계별로 기능을 쌓아가는 개인 프로젝트입니다.
+[![CI](https://github.com/casey1425/Kanban/actions/workflows/ci.yml/badge.svg)](https://github.com/casey1425/Kanban/actions/workflows/ci.yml)
 
-> 현재 개발 중입니다. 아래 [로드맵](#로드맵)에서 진행 상황을 확인할 수 있습니다.
+Avalonia UI와 MVVM 패턴으로 만든 크로스플랫폼(Windows / macOS / Linux) 데스크톱 칸반 보드 앱입니다.
+Avalonia를 학습하면서 단계별로 기능을 쌓아간 개인 프로젝트입니다.
+
+![라이트 테마 보드](docs/screenshots/board-light.png)
+
+<details>
+<summary>다크 테마 / 카드 상세</summary>
+
+![다크 테마 보드](docs/screenshots/board-dark.png)
+
+![카드 상세 패널](docs/screenshots/card-detail.png)
+
+</details>
+
+> 위 화면은 샘플 데이터로 렌더링한 이미지입니다.
 
 ## 기능
 
@@ -28,7 +41,22 @@ Avalonia를 학습하면서 단계별로 기능을 쌓아가는 개인 프로젝
 | 구성 | Microsoft.Extensions.DependencyInjection |
 | IDE | JetBrains Rider |
 
-## 실행 방법
+## 다운로드
+
+[Releases](https://github.com/casey1425/Kanban/releases)에서 운영체제에 맞는 파일을 받을 수 있습니다.
+.NET을 따로 설치할 필요가 없습니다(자체 포함 단일 실행 파일).
+
+| 파일 | 대상 |
+|---|---|
+| `Kanban-win-x64.zip` | Windows (x64) |
+| `Kanban-osx-arm64.tar.gz` | macOS (Apple Silicon) |
+| `Kanban-osx-x64.tar.gz` | macOS (Intel) |
+| `Kanban-linux-x64.tar.gz` | Linux (x64) |
+
+> 서명하지 않은 앱이라 첫 실행 시 운영체제가 경고할 수 있습니다.
+> macOS에서는 압축을 푼 뒤 `xattr -d com.apple.quarantine Kanban.App` 로 격리 속성을 제거하고 실행하세요.
+
+## 소스에서 실행
 
 [.NET 10 SDK](https://dotnet.microsoft.com/download)가 필요합니다.
 
@@ -38,7 +66,15 @@ cd Kanban
 dotnet run --project Kanban.App
 ```
 
-Windows, macOS, Linux에서 실행할 수 있습니다.
+### 테스트
+
+```bash
+dotnet test
+```
+
+- 저장소(SQLite)와 ViewModel 동작은 임시 DB를 만들어 실제로 저장하고 다시 불러오며 검증합니다.
+- 화면(XAML)은 Avalonia 헤드리스 렌더러로 그려서, 라벨 표시나 바인딩 오류 같은 문제를 확인합니다.
+- GitHub Actions가 push마다 Ubuntu / Windows / macOS에서 빌드와 테스트를 실행합니다.
 
 ## 프로젝트 구조
 
@@ -47,6 +83,7 @@ Kanban/
 ├── Kanban.sln
 ├── Kanban.Core/          # 모델, IBoardRepository (UI·DB에 의존하지 않음)
 ├── Kanban.Data/          # EF Core DbContext, 저장소 구현, 마이그레이션
+├── Kanban.Tests/         # xUnit: 저장소, ViewModel, 화면 스모크 테스트
 └── Kanban.App/           # Avalonia UI
     ├── ViewModels/       # MainWindow, BoardList, Card, CardDetail ...
     ├── Views/            # *.axaml
@@ -83,4 +120,5 @@ dotnet ef migrations add <이름> --project Kanban.Data --startup-project Kanban
 | 3 | 드래그 앤 드롭 | 완료 |
 | 4 | SQLite(EF Core) 저장, 마감일 / 라벨 / 체크리스트 | 완료 |
 | 5 | 테마, 검색 / 필터, 오류 알림, 설정 | 완료 |
-| 마무리 | 단위 테스트(xUnit), GitHub Actions 크로스플랫폼 빌드, 릴리스 | 예정 |
+| 마무리 | 단위 테스트(xUnit), GitHub Actions 크로스플랫폼 빌드 | 완료 |
+| 릴리스 | `v*` 태그를 푸시하면 각 OS용 실행 파일을 자동 빌드해 배포 | 워크플로우 준비 완료 |
