@@ -25,6 +25,32 @@ public partial class MainWindowViewModel : ViewModelBase
     [NotifyCanExecuteChangedFor(nameof(AddNewListCommand))]
     private string _newListName = string.Empty;
 
+    /// <summary>카드 검색어. 제목, 설명, 체크리스트 항목에서 찾는다.</summary>
+    [ObservableProperty]
+    private string _searchText = string.Empty;
+
+    public ObservableCollection<LabelFilterOption> LabelFilters { get; } = new();
+
+    [ObservableProperty]
+    private LabelFilterOption? _selectedLabelFilter;
+
+    partial void OnSearchTextChanged(string value) => ApplyFilter();
+
+    partial void OnSelectedLabelFilterChanged(LabelFilterOption? value) => ApplyFilter();
+
+    private void ApplyFilter()
+    {
+        foreach (var list in Lists)
+            list.ApplyFilter(SearchText, SelectedLabelFilter?.LabelId);
+    }
+
+    [RelayCommand]
+    private void ClearFilter()
+    {
+        SearchText = string.Empty;
+        SelectedLabelFilter = LabelFilters.FirstOrDefault();
+    }
+
     /// <summary>불러오기/저장 실패 시 화면 상단에 보여 줄 메시지. 사용자가 닫을 수 있다.</summary>
     [ObservableProperty]
     private string? _errorMessage;
@@ -59,6 +85,11 @@ public partial class MainWindowViewModel : ViewModelBase
 
             _labels = await _repository.GetLabelsAsync();
 
+            LabelFilters.Add(new LabelFilterOption(null, "모든 라벨"));
+            foreach (var label in _labels)
+                LabelFilters.Add(new LabelFilterOption(label.Id, label.Name));
+            SelectedLabelFilter = LabelFilters[0];
+
             var lists = await _repository.GetListsAsync();
             if (lists.Count == 0)
                 lists = await SeedDefaultBoardAsync();
@@ -82,8 +113,12 @@ public partial class MainWindowViewModel : ViewModelBase
         return await _repository.GetListsAsync();
     }
 
-    private BoardListViewModel CreateListViewModel(BoardList model) =>
-        new(model, _repository, _labels, list => Lists.Remove(list));
+    private BoardListViewModel CreateListViewModel(BoardList model)
+    {
+        var list = new BoardListViewModel(model, _repository, _labels, l => Lists.Remove(l));
+        list.ApplyFilter(SearchText, SelectedLabelFilter?.LabelId); // 필터가 켜진 상태에서 만든 리스트도 맞춘다.
+        return list;
+    }
 
     private bool CanAddNewList() => !string.IsNullOrWhiteSpace(NewListName);
 

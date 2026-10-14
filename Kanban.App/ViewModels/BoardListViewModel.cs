@@ -15,6 +15,8 @@ public partial class BoardListViewModel : ViewModelBase
     private readonly IBoardRepository _repository;
     private readonly Action<BoardListViewModel> _onDeleted;
     private readonly IReadOnlyList<Label> _labels;
+    private string? _filterText;
+    private int? _filterLabelId;
 
     public int Id { get; }
 
@@ -47,8 +49,23 @@ public partial class BoardListViewModel : ViewModelBase
     private void AddCardFromModel(Card model)
     {
         var card = new CardViewModel(model, _repository, _labels) { Owner = this };
+        card.IsMatch = card.Matches(_filterText, _filterLabelId);
         Cards.Add(card);
     }
+
+    /// <summary>검색/라벨 조건을 저장하고, 이 리스트의 모든 카드에 적용한다.</summary>
+    public void ApplyFilter(string? searchText, int? labelId)
+    {
+        _filterText = searchText;
+        _filterLabelId = labelId;
+
+        foreach (var card in Cards)
+            RefreshFilter(card);
+    }
+
+    /// <summary>카드의 제목이나 라벨이 바뀐 뒤, 현재 조건에 다시 맞춰 본다.</summary>
+    public void RefreshFilter(CardViewModel card) =>
+        card.IsMatch = card.Matches(_filterText, _filterLabelId);
 
     [RelayCommand]
     private Task DeleteAsync() => RunSafeAsync(async () =>
@@ -119,6 +136,7 @@ public partial class BoardListViewModel : ViewModelBase
         card.Owner?.RemoveCard(card);
         Cards.Insert(Math.Clamp(index, 0, Cards.Count), card);
         card.Owner = this;
+        RefreshFilter(card);
     }
 
     public void RemoveCard(CardViewModel card)

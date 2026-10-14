@@ -3,6 +3,7 @@
              xmlns:vm="using:Kanban.App.ViewModels"
              x:Class="Kanban.App.Views.CardView"
              x:DataType="vm:CardViewModel"
+             IsVisible="{Binding IsMatch}"
              DragDrop.AllowDrop="True">
 
     <UserControl.Styles>

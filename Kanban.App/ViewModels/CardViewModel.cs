@@ -35,6 +35,10 @@ public partial class CardViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isEditing;
 
+    /// <summary>현재 검색/필터 조건에 일치하는지. false이면 화면에서 숨긴다.</summary>
+    [ObservableProperty]
+    private bool _isMatch = true;
+
     // 편집 중인 임시 값. 확정(Enter) 전에는 Title을 건드리지 않는다.
     [ObservableProperty]
     private string _editTitle = string.Empty;
@@ -109,6 +113,7 @@ public partial class CardViewModel : ViewModelBase
         OnPropertyChanged(nameof(ChecklistDoneCount));
         OnPropertyChanged(nameof(ChecklistSummary));
         OnPropertyChanged(nameof(IsChecklistComplete));
+        Owner?.RefreshFilter(this); // 검색이 체크리스트 항목도 보므로 일치 여부를 다시 계산한다.
     }
 
     private bool CanAddChecklistItem() => !string.IsNullOrWhiteSpace(NewChecklistText);
@@ -145,6 +150,7 @@ public partial class CardViewModel : ViewModelBase
     private Task OnLabelToggledAsync()
     {
         RefreshLabels();
+        Owner?.RefreshFilter(this);
         var ids = LabelOptions.Where(o => o.IsSelected).Select(o => o.Id).ToList();
         return RunSafeAsync(() => _repository.SetCardLabelsAsync(Id, ids), "라벨을 저장하지 못했어요");
     }
@@ -157,6 +163,21 @@ public partial class CardViewModel : ViewModelBase
         DueDate = DueDate,
     };
 
+    /// <summary>검색어(제목, 설명, 체크리스트 항목)와 라벨 조건에 모두 일치하는지 판단한다.</summary>
+    public bool Matches(string? searchText, int? labelId)
+    {
+        if (labelId is { } id && Labels.All(l => l.Id != id))
+            return false;
+
+        if (string.IsNullOrWhiteSpace(searchText))
+            return true;
+
+        var text = searchText.Trim();
+        return Title.Contains(text, StringComparison.CurrentCultureIgnoreCase)
+            || (Description?.Contains(text, StringComparison.CurrentCultureIgnoreCase) ?? false)
+            || Checklist.Any(i => i.Text.Contains(text, StringComparison.CurrentCultureIgnoreCase));
+    }
+
     /// <summary>제목, 설명, 마감일을 저장한다. 제목을 비워 둔 경우 마지막으로 저장된 제목으로 되돌린다.</summary>
     public Task SaveAsync() => RunSafeAsync(async () =>
     {
@@ -165,6 +186,7 @@ public partial class CardViewModel : ViewModelBase
 
         await _repository.UpdateCardAsync(ToModel());
         _savedTitle = Title;
+        Owner?.RefreshFilter(this);
     }, "카드를 저장하지 못했어요");
 
     [RelayCommand]

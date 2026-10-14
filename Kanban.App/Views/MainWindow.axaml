@@ -12,20 +12,36 @@
 
     <Grid>
     <DockPanel>
-        <!-- 상단 보드 제목 -->
+        <!-- 상단 바: 제목 + 리스트 추가 / 검색 + 라벨 필터 -->
         <Border DockPanel.Dock="Top" Padding="16,12"
                 Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
-            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
-                <TextBlock Grid.Column="0" Text="{Binding BoardTitle}" FontSize="20"
-                           FontWeight="SemiBold" VerticalAlignment="Center"/>
-                <TextBox Grid.Column="1" Width="200" PlaceholderText="새 리스트 이름"
-                         Text="{Binding NewListName}">
-                    <TextBox.KeyBindings>
-                        <KeyBinding Gesture="Enter" Command="{Binding AddNewListCommand}"/>
-                    </TextBox.KeyBindings>
-                </TextBox>
-                <Button Grid.Column="2" Content="리스트 추가" Command="{Binding AddNewListCommand}"/>
-            </Grid>
+            <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                    <TextBlock Grid.Column="0" Text="{Binding BoardTitle}" FontSize="20"
+                               FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <TextBox Grid.Column="1" Width="200" PlaceholderText="새 리스트 이름"
+                             Text="{Binding NewListName}">
+                        <TextBox.KeyBindings>
+                            <KeyBinding Gesture="Enter" Command="{Binding AddNewListCommand}"/>
+                        </TextBox.KeyBindings>
+                    </TextBox>
+                    <Button Grid.Column="2" Content="리스트 추가" Command="{Binding AddNewListCommand}"/>
+                </Grid>
+
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBox Width="260" PlaceholderText="카드 검색 (제목, 설명, 체크리스트)"
+                             Text="{Binding SearchText}"/>
+                    <ComboBox Width="150" ItemsSource="{Binding LabelFilters}"
+                              SelectedItem="{Binding SelectedLabelFilter}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:LabelFilterOption">
+                                <TextBlock Text="{Binding Name}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button Content="필터 초기화" Command="{Binding ClearFilterCommand}"/>
+                </StackPanel>
+            </StackPanel>
         </Border>
 
         <!-- 불러오기/저장 실패 안내 -->
