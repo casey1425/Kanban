@@ -20,13 +20,14 @@ Avalonia를 학습하면서 단계별로 기능을 쌓아간 개인 프로젝트
 
 ## 기능
 
+- [x] 여러 보드: 사이드바에서 만들기·전환·이름 변경·삭제 (마지막으로 본 보드를 기억)
 - [x] 보드, 리스트, 카드 표시
 - [x] 카드 추가 / 삭제 / 제목 수정
 - [x] 리스트 추가 / 삭제
 - [x] 드래그 앤 드롭으로 카드 순서 변경 및 리스트 간 이동
 - [x] SQLite 저장 (앱을 다시 켜도 보드가 유지됨)
 - [x] 카드 상세: 설명, 마감일, 라벨, 체크리스트
-- [x] 카드 검색(제목·설명·체크리스트)과 라벨 필터
+- [x] 카드 검색(제목·설명·체크리스트)과 라벨 필터 (보드마다 따로)
 - [x] 다크 / 라이트 / 시스템 테마 전환(설정 저장)
 - [x] 저장 실패 시 오류 배너 표시
 
@@ -73,6 +74,7 @@ dotnet test
 ```
 
 - 저장소(SQLite)와 ViewModel 동작은 임시 DB를 만들어 실제로 저장하고 다시 불러오며 검증합니다.
+- 마이그레이션은 "이전 버전 스키마의 DB에 데이터를 넣고 최신으로 올려도 보존되는지"까지 테스트합니다.
 - 화면(XAML)은 Avalonia 헤드리스 렌더러로 그려서, 라벨 표시나 바인딩 오류 같은 문제를 확인합니다.
 - GitHub Actions가 push마다 Ubuntu / Windows / macOS에서 빌드와 테스트를 실행합니다.
 
@@ -85,7 +87,7 @@ Kanban/
 ├── Kanban.Data/          # EF Core DbContext, 저장소 구현, 마이그레이션
 ├── Kanban.Tests/         # xUnit: 저장소, ViewModel, 화면 스모크 테스트
 └── Kanban.App/           # Avalonia UI
-    ├── ViewModels/       # MainWindow, BoardList, Card, CardDetail ...
+    ├── ViewModels/       # MainWindow(보드 목록·설정), Board, BoardList, Card, CardDetail ...
     ├── Views/            # *.axaml
     ├── Messages/         # ViewModel 간 메시지 (OpenCardRequested, ErrorOccurred)
     ├── Services/         # 설정 저장(JSON)
@@ -100,7 +102,7 @@ Kanban/
 
 ## 데이터 저장 위치
 
-사용자 데이터 폴더의 `Kanban/` 아래에 저장됩니다. `kanban.db`는 보드 데이터, `settings.json`은 테마 같은 사용자 설정입니다.
+사용자 데이터 폴더의 `Kanban/` 아래에 저장됩니다. `kanban.db`는 보드 데이터, `settings.json`은 테마와 마지막으로 본 보드 같은 사용자 설정입니다.
 (macOS/Linux: `~/.local/share/Kanban/kanban.db`, Windows: `%LOCALAPPDATA%\Kanban\kanban.db`)
 앱 시작 시 마이그레이션이 자동으로 적용됩니다.
 
@@ -121,4 +123,5 @@ dotnet ef migrations add <이름> --project Kanban.Data --startup-project Kanban
 | 4 | SQLite(EF Core) 저장, 마감일 / 라벨 / 체크리스트 | 완료 |
 | 5 | 테마, 검색 / 필터, 오류 알림, 설정 | 완료 |
 | 마무리 | 단위 테스트(xUnit), GitHub Actions 크로스플랫폼 빌드 | 완료 |
-| 릴리스 | `v*` 태그를 푸시하면 각 OS용 실행 파일을 자동 빌드해 배포 | 워크플로우 준비 완료 |
+| 릴리스 | `v*` 태그를 푸시하면 각 OS용 실행 파일을 자동 빌드해 배포 | v0.1.0 배포 |
+| 확장 1 | 다중 보드 (기존 데이터를 기본 보드로 자동 이전) | 완료 |
