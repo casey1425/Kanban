@@ -34,7 +34,7 @@ public sealed class UiSmokeTests : IDisposable
     public async Task Cards_show_their_labels()
     {
         var (window, viewModel) = await ShowWindowAsync();
-        var card = viewModel.Lists[0].Cards[0];
+        var card = viewModel.SelectedBoard!.Lists[0].Cards[0];
 
         await card.LabelOptions[0].ToggleCommand.ExecuteAsync(null); // 긴급
         await card.LabelOptions[2].ToggleCommand.ExecuteAsync(null); // 기능
@@ -54,7 +54,7 @@ public sealed class UiSmokeTests : IDisposable
     public async Task Detail_panel_binds_due_date_without_errors()
     {
         var (window, viewModel) = await ShowWindowAsync();
-        var card = viewModel.Lists[0].Cards[0];
+        var card = viewModel.SelectedBoard!.Lists[0].Cards[0];
         card.DueDate = new DateOnly(2030, 3, 9);
 
         card.OpenDetailCommand.Execute(null);
@@ -70,7 +70,7 @@ public sealed class UiSmokeTests : IDisposable
     {
         var (window, viewModel) = await ShowWindowAsync();
 
-        viewModel.Lists[0].Cards[0].OpenDetailCommand.Execute(null);
+        viewModel.SelectedBoard!.Lists[0].Cards[0].OpenDetailCommand.Execute(null);
         Dispatcher.UIThread.RunJobs();
 
         // 오류 배너에도 "닫기"가 있지만, 오류가 없으면 숨겨져 있다. 화면에 보이는 것은 상세 패널의 것 하나여야 한다.
@@ -87,12 +87,12 @@ public sealed class UiSmokeTests : IDisposable
     public async Task Filtered_out_cards_are_hidden_from_the_board()
     {
         var (window, viewModel) = await ShowWindowAsync();
-        var todo = viewModel.Lists[0];
+        var todo = viewModel.SelectedBoard!.Lists[0];
         todo.NewCardTitle = "second";
         await todo.AddNewCardCommand.ExecuteAsync(null);
         Dispatcher.UIThread.RunJobs();
 
-        viewModel.SearchText = "second";
+        viewModel.SelectedBoard!.SearchText = "second";
         Dispatcher.UIThread.RunJobs();
 
         var visibleTitles = window.GetVisualDescendants()
@@ -132,6 +132,33 @@ public sealed class UiSmokeTests : IDisposable
         Dispatcher.UIThread.RunJobs();
 
         Assert.Null(viewModel.Detail);
-        Assert.True(viewModel.Lists[0].Cards[0].IsEditing);
+        Assert.True(viewModel.SelectedBoard!.Lists[0].Cards[0].IsEditing);
+    }
+
+    [AvaloniaFact]
+    public async Task Sidebar_lists_boards_and_switching_shows_the_other_boards_cards()
+    {
+        var (window, viewModel) = await ShowWindowAsync();
+        viewModel.NewBoardName = "Second";
+        await viewModel.AddNewBoardCommand.ExecuteAsync(null);
+        var second = viewModel.SelectedBoard!;
+        second.Lists[0].NewCardTitle = "only in second";
+        await second.Lists[0].AddNewCardCommand.ExecuteAsync(null);
+        Dispatcher.UIThread.RunJobs();
+
+        string[] VisibleCardTitles() => window.GetVisualDescendants()
+            .OfType<CardView>()
+            .Where(v => v.IsEffectivelyVisible)
+            .Select(v => ((CardViewModel)v.DataContext!).Title)
+            .ToArray();
+
+        var boardNames = window.GetVisualDescendants().OfType<ListBox>().Single().ItemCount;
+        Assert.Equal(2, boardNames);
+        Assert.Equal(new[] { "only in second" }, VisibleCardTitles());
+
+        viewModel.SelectedBoard = viewModel.Boards[0];
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.DoesNotContain("only in second", VisibleCardTitles());
     }
 }

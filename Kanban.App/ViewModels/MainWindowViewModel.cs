@@ -1,58 +1,73 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Kanban.App.Messages;
-using Kanban.Core;
 using Kanban.App.Services;
+using Kanban.Core;
 using Kanban.Core.Models;
 
 namespace Kanban.App.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
+    private const string DefaultBoardName = "My Kanban Board";
+
     private readonly IBoardRepository _repository;
     private readonly ISettingsService _settings;
     private IReadOnlyList<Label> _labels = Array.Empty<Label>();
-    private int _boardId;
 
-    public string BoardTitle { get; } = "My Kanban Board";
+    // ----- 보드 목록 -----
 
-    public ObservableCollection<BoardListViewModel> Lists { get; } = new();
+    public ObservableCollection<BoardViewModel> Boards { get; } = new();
 
+    /// <summary>지금 보고 있는 보드. 처음 선택될 때 리스트와 카드를 불러온다.</summary>
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(AddNewListCommand))]
-    private string _newListName = string.Empty;
+    private BoardViewModel? _selectedBoard;
 
-    /// <summary>카드 검색어. 제목, 설명, 체크리스트 항목에서 찾는다.</summary>
-    [ObservableProperty]
-    private string _searchText = string.Empty;
-
-    public ObservableCollection<LabelFilterOption> LabelFilters { get; } = new();
-
-    [ObservableProperty]
-    private LabelFilterOption? _selectedLabelFilter;
-
-    partial void OnSearchTextChanged(string value) => ApplyFilter();
-
-    partial void OnSelectedLabelFilterChanged(LabelFilterOption? value) => ApplyFilter();
-
-    private void ApplyFilter()
+    partial void OnSelectedBoardChanged(BoardViewModel? value)
     {
-        foreach (var list in Lists)
-            list.ApplyFilter(SearchText, SelectedLabelFilter?.LabelId);
+        if (value is { IsLoaded: false })
+            _ = RunSafeAsync(value.LoadAsync, "보드를 불러오지 못했어요");
     }
 
-    [RelayCommand]
-    private void ClearFilter()
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AddNewBoardCommand))]
+    private string _newBoardName = string.Empty;
+
+    private bool CanAddNewBoard() => !string.IsNullOrWhiteSpace(NewBoardName);
+
+    /// <summary>새 보드를 만들고(기본 리스트 3개 포함) 바로 그 보드로 이동한다.</summary>
+    [RelayCommand(CanExecute = nameof(CanAddNewBoard))]
+    private Task AddNewBoardAsync()
     {
-        SearchText = string.Empty;
-        SelectedLabelFilter = LabelFilters.FirstOrDefault();
+        var name = NewBoardName.Trim();
+        NewBoardName = string.Empty;
+
+        return RunSafeAsync(async () =>
+        {
+            var model = await _repository.AddBoardAsync(name);
+            await CreateDefaultListsAsync(model.Id);
+
+            var board = new BoardViewModel(model, _repository, _labels);
+            await board.LoadAsync();
+            Boards.Add(board);
+            SelectedBoard = board;
+        }, "보드를 만들지 못했어요");
     }
+
+    private async Task<BoardList> CreateDefaultListsAsync(int boardId)
+    {
+        var todo = await _repository.AddListAsync(boardId, "To Do");
+        await _repository.AddListAsync(boardId, "In Progress");
+        await _repository.AddListAsync(boardId, "Done");
+        return todo;
+    }
+
+    // ----- 오류 / 상세 패널 -----
 
     /// <summary>불러오기/저장 실패 시 화면 상단에 보여 줄 메시지. 사용자가 닫을 수 있다.</summary>
     [ObservableProperty]
@@ -61,6 +76,14 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>열려 있는 카드 상세 패널. null이면 닫혀 있다.</summary>
     [ObservableProperty]
     private CardDetailViewModel? _detail;
+
+    [RelayCommand]
+    private void DismissError() => ErrorMessage = null;
+
+    [RelayCommand]
+    private void CloseDetail() => Detail?.CloseCommand.Execute(null);
+
+    // ----- 테마 -----
 
     /// <summary>현재 테마 모드. 바뀌면 설정 파일에 저장하고, 앱(App.axaml.cs)이 실제 테마를 바꾼다.</summary>
     [ObservableProperty]
@@ -95,6 +118,8 @@ public partial class MainWindowViewModel : ViewModelBase
         _ => ThemeMode.System,
     };
 
+    // ----- 시작 -----
+
     public MainWindowViewModel(IBoardRepository repository, ISettingsService settings)
     {
         _repository = repository;
@@ -108,35 +133,27 @@ public partial class MainWindowViewModel : ViewModelBase
             this, (vm, message) => vm.ErrorMessage = message.Message);
     }
 
-    [RelayCommand]
-    private void DismissError() => ErrorMessage = null;
-
-    [RelayCommand]
-    private void CloseDetail() => Detail?.CloseCommand.Execute(null);
-
-    /// <summary>DB를 준비하고 저장된 보드를 불러온다. 처음 실행이면 기본 리스트를 만든다.</summary>
+    /// <summary>DB를 준비하고 보드 목록을 불러온다. 처음 실행이면 기본 보드에 안내 카드를 만든다.</summary>
     public async Task InitializeAsync()
     {
         try
         {
             await _repository.InitializeAsync();
-
             _labels = await _repository.GetLabelsAsync();
 
-            LabelFilters.Add(new LabelFilterOption(null, "모든 라벨"));
-            foreach (var label in _labels)
-                LabelFilters.Add(new LabelFilterOption(label.Id, label.Name));
-            SelectedLabelFilter = LabelFilters[0];
-
             var boards = await _repository.GetBoardsAsync();
-            _boardId = boards.Count > 0 ? boards[0].Id : (await _repository.AddBoardAsync("My Kanban Board")).Id;
+            if (boards.Count == 0)
+                boards = new[] { await _repository.AddBoardAsync(DefaultBoardName) };
 
-            var lists = await _repository.GetListsAsync(_boardId);
-            if (lists.Count == 0)
-                lists = await SeedDefaultBoardAsync();
+            foreach (var board in boards)
+                Boards.Add(new BoardViewModel(board, _repository, _labels));
 
-            foreach (var list in lists)
-                Lists.Add(CreateListViewModel(list));
+            if (Boards.Count == 1)
+                await SeedFirstRunBoardAsync(Boards[0]);
+
+            // 선택하기 전에 먼저 불러 둔다. (선택하면 불러오기가 백그라운드로 시작되므로)
+            await Boards[0].LoadAsync();
+            SelectedBoard = Boards[0];
         }
         catch (Exception ex)
         {
@@ -144,35 +161,14 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
-    private async Task<IReadOnlyList<BoardList>> SeedDefaultBoardAsync()
+    /// <summary>비어 있는 유일한 보드라면 기본 리스트와 안내 카드를 만든다.</summary>
+    private async Task SeedFirstRunBoardAsync(BoardViewModel board)
     {
-        var todo = await _repository.AddListAsync(_boardId, "To Do");
-        await _repository.AddListAsync(_boardId, "In Progress");
-        await _repository.AddListAsync(_boardId, "Done");
+        var lists = await _repository.GetListsAsync(board.Id);
+        if (lists.Count > 0)
+            return;
+
+        var todo = await CreateDefaultListsAsync(board.Id);
         await _repository.AddCardAsync(todo.Id, "카드를 드래그해서 옮겨 보세요", "✎로 제목을 수정하고 ✕로 삭제할 수 있어요");
-
-        return await _repository.GetListsAsync(_boardId);
-    }
-
-    private BoardListViewModel CreateListViewModel(BoardList model)
-    {
-        var list = new BoardListViewModel(model, _repository, _labels, l => Lists.Remove(l));
-        list.ApplyFilter(SearchText, SelectedLabelFilter?.LabelId); // 필터가 켜진 상태에서 만든 리스트도 맞춘다.
-        return list;
-    }
-
-    private bool CanAddNewList() => !string.IsNullOrWhiteSpace(NewListName);
-
-    [RelayCommand(CanExecute = nameof(CanAddNewList))]
-    private Task AddNewListAsync()
-    {
-        var name = NewListName.Trim();
-        NewListName = string.Empty;
-
-        return RunSafeAsync(async () =>
-        {
-            var model = await _repository.AddListAsync(_boardId, name);
-            Lists.Add(CreateListViewModel(model));
-        }, "리스트를 추가하지 못했어요");
     }
 }

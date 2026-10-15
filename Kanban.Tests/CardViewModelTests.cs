@@ -22,22 +22,22 @@ public sealed class CardViewModelTests : IDisposable
     public async Task Due_date_is_saved_when_detail_closes()
     {
         var app = await _app.StartAsync();
-        var card = app.Lists[0].Cards[0];
+        var card = app.SelectedBoard!.Lists[0].Cards[0];
 
         card.OpenDetailCommand.Execute(null);
         card.DueDateTime = new DateTime(2020, 1, 15);
         await app.Detail!.CloseCommand.ExecuteAsync(null);
 
         var restarted = await _app.StartAsync();
-        Assert.Equal(new DateOnly(2020, 1, 15), restarted.Lists[0].Cards[0].DueDate);
-        Assert.True(restarted.Lists[0].Cards[0].IsOverdue);
+        Assert.Equal(new DateOnly(2020, 1, 15), restarted.SelectedBoard!.Lists[0].Cards[0].DueDate);
+        Assert.True(restarted.SelectedBoard!.Lists[0].Cards[0].IsOverdue);
     }
 
     [Fact]
     public async Task Clearing_due_date_removes_it()
     {
         var app = await _app.StartAsync();
-        var card = app.Lists[0].Cards[0];
+        var card = app.SelectedBoard!.Lists[0].Cards[0];
         card.DueDate = new DateOnly(2030, 1, 1);
 
         card.OpenDetailCommand.Execute(null);
@@ -45,15 +45,15 @@ public sealed class CardViewModelTests : IDisposable
         await app.Detail.CloseCommand.ExecuteAsync(null);
 
         var restarted = await _app.StartAsync();
-        Assert.Null(restarted.Lists[0].Cards[0].DueDate);
-        Assert.False(restarted.Lists[0].Cards[0].HasDueDate);
+        Assert.Null(restarted.SelectedBoard!.Lists[0].Cards[0].DueDate);
+        Assert.False(restarted.SelectedBoard!.Lists[0].Cards[0].HasDueDate);
     }
 
     [Fact]
     public async Task Blank_title_is_restored_and_blank_description_becomes_null()
     {
         var app = await _app.StartAsync();
-        var card = app.Lists[0].Cards[0];
+        var card = app.SelectedBoard!.Lists[0].Cards[0];
         var original = card.Title;
 
         card.OpenDetailCommand.Execute(null);
@@ -63,7 +63,7 @@ public sealed class CardViewModelTests : IDisposable
 
         Assert.Equal(original, card.Title);
         var restarted = await _app.StartAsync();
-        Assert.Null(restarted.Lists[0].Cards[0].Description);
+        Assert.Null(restarted.SelectedBoard!.Lists[0].Cards[0].Description);
     }
 
     // ----- 라벨 -----
@@ -72,7 +72,7 @@ public sealed class CardViewModelTests : IDisposable
     public async Task Labels_can_be_toggled_and_are_persisted()
     {
         var app = await _app.StartAsync();
-        var card = app.Lists[0].Cards[0];
+        var card = app.SelectedBoard!.Lists[0].Cards[0];
         Assert.Equal(6, card.LabelOptions.Count);
         Assert.False(card.HasLabels);
 
@@ -84,7 +84,7 @@ public sealed class CardViewModelTests : IDisposable
         Assert.Equal(new[] { "긴급", "기능" }, card.Labels.Select(l => l.Name));
 
         var restarted = await _app.StartAsync();
-        var restored = restarted.Lists[0].Cards[0];
+        var restored = restarted.SelectedBoard!.Lists[0].Cards[0];
         Assert.Equal(new[] { 1, 3 }, restored.LabelOptions.Where(o => o.IsSelected).Select(o => o.Id));
     }
 
@@ -93,9 +93,9 @@ public sealed class CardViewModelTests : IDisposable
     {
         var app = await _app.StartAsync();
 
-        await AddCardAsync(app.Lists[0], "new");
+        await AddCardAsync(app.SelectedBoard!.Lists[0], "new");
 
-        Assert.Equal(6, app.Lists[0].Cards.Last().LabelOptions.Count);
+        Assert.Equal(6, app.SelectedBoard!.Lists[0].Cards.Last().LabelOptions.Count);
     }
 
     // ----- 체크리스트 -----
@@ -104,7 +104,7 @@ public sealed class CardViewModelTests : IDisposable
     public async Task Checklist_progress_is_tracked_and_persisted()
     {
         var app = await _app.StartAsync();
-        var card = app.Lists[0].Cards[0];
+        var card = app.SelectedBoard!.Lists[0].Cards[0];
         Assert.Equal("0/0", card.ChecklistSummary);
 
         foreach (var text in new[] { "one", "two", "three" })
@@ -127,7 +127,7 @@ public sealed class CardViewModelTests : IDisposable
         Assert.True(card.IsChecklistComplete);
 
         var restarted = await _app.StartAsync();
-        var restored = restarted.Lists[0].Cards[0];
+        var restored = restarted.SelectedBoard!.Lists[0].Cards[0];
         Assert.Equal(new[] { "one:True", "three:True" }, restored.Checklist.Select(i => $"{i.Text}:{i.IsDone}"));
     }
 
@@ -135,7 +135,7 @@ public sealed class CardViewModelTests : IDisposable
     public async Task Blank_checklist_input_cannot_be_added()
     {
         var app = await _app.StartAsync();
-        var card = app.Lists[0].Cards[0];
+        var card = app.SelectedBoard!.Lists[0].Cards[0];
 
         card.NewChecklistText = "  ";
 
@@ -150,7 +150,7 @@ public sealed class CardViewModelTests : IDisposable
     private async Task<(MainWindowViewModel App, BoardListViewModel Todo)> CreateFilterBoardAsync()
     {
         var app = await _app.StartAsync();
-        var todo = app.Lists[0];
+        var todo = app.SelectedBoard!.Lists[0];
         await todo.Cards[0].DeleteCommand.ExecuteAsync(null); // 안내 카드는 검색 결과를 흐리므로 지운다.
 
         foreach (var title in new[] { "Apple pie", "banana split", "Cherry" })
@@ -164,10 +164,10 @@ public sealed class CardViewModelTests : IDisposable
     {
         var (app, todo) = await CreateFilterBoardAsync();
 
-        app.SearchText = "APPLE";
+        app.SelectedBoard!.SearchText = "APPLE";
         Assert.Equal("Apple pie", Visible(todo));
 
-        app.SearchText = "an";
+        app.SelectedBoard!.SearchText = "an";
         Assert.Equal("banana split", Visible(todo));
     }
 
@@ -179,7 +179,7 @@ public sealed class CardViewModelTests : IDisposable
         cherry.NewChecklistText = "buy sugar";
         await cherry.AddChecklistItemCommand.ExecuteAsync(null);
 
-        app.SearchText = "sugar";
+        app.SelectedBoard!.SearchText = "sugar";
 
         Assert.Equal("Cherry", Visible(todo));
     }
@@ -191,13 +191,13 @@ public sealed class CardViewModelTests : IDisposable
         var apple = todo.Cards.First(c => c.Title == "Apple pie");
         await apple.LabelOptions[0].ToggleCommand.ExecuteAsync(null); // 긴급
 
-        app.SelectedLabelFilter = app.LabelFilters.First(f => f.LabelId == 1);
+        app.SelectedBoard!.SelectedLabelFilter = app.SelectedBoard!.LabelFilters.First(f => f.LabelId == 1);
         Assert.Equal("Apple pie", Visible(todo));
 
-        app.SearchText = "banana";
+        app.SelectedBoard!.SearchText = "banana";
         Assert.Equal("", Visible(todo)); // 라벨 AND 검색
 
-        app.SearchText = "";
+        app.SelectedBoard!.SearchText = "";
         await apple.LabelOptions[0].ToggleCommand.ExecuteAsync(null); // 라벨 해제
         Assert.Equal("", Visible(todo));
     }
@@ -206,24 +206,24 @@ public sealed class CardViewModelTests : IDisposable
     public async Task Clearing_the_filter_shows_everything()
     {
         var (app, todo) = await CreateFilterBoardAsync();
-        app.SearchText = "zzz";
+        app.SelectedBoard!.SearchText = "zzz";
         Assert.Equal("", Visible(todo));
 
-        app.ClearFilterCommand.Execute(null);
+        app.SelectedBoard!.ClearFilterCommand.Execute(null);
 
         Assert.True(todo.Cards.All(c => c.IsMatch));
-        Assert.Null(app.SelectedLabelFilter?.LabelId);
+        Assert.Null(app.SelectedBoard!.SelectedLabelFilter?.LabelId);
     }
 
     [Fact]
     public async Task Moved_cards_keep_matching_the_active_filter()
     {
         var (app, todo) = await CreateFilterBoardAsync();
-        app.SearchText = "apple";
+        app.SelectedBoard!.SearchText = "apple";
 
         // 필터가 켜진 상태에서 카드를 다른 리스트로 옮겨도 일치 여부가 그대로 유지된다.
         var banana = todo.Cards.First(c => c.Title == "banana split");
-        await app.Lists[1].MoveCardHereAsync(banana, 0);
+        await app.SelectedBoard!.Lists[1].MoveCardHereAsync(banana, 0);
 
         Assert.False(banana.IsMatch);
         Assert.Equal("Apple pie", Visible(todo));

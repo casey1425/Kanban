@@ -1,0 +1,52 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Kanban.App.ViewModels"
+             x:Class="Kanban.App.Views.BoardView"
+             x:DataType="vm:BoardViewModel">
+
+    <DockPanel>
+        <!-- 상단 바: 보드 이름 + 리스트 추가 / 검색 + 라벨 필터 -->
+        <Border DockPanel.Dock="Top" Padding="16,12"
+                Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+            <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                    <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="20"
+                               FontWeight="SemiBold" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"/>
+                    <TextBox Grid.Column="1" Width="200" PlaceholderText="새 리스트 이름"
+                             Text="{Binding NewListName}">
+                        <TextBox.KeyBindings>
+                            <KeyBinding Gesture="Enter" Command="{Binding AddNewListCommand}"/>
+                        </TextBox.KeyBindings>
+                    </TextBox>
+                    <Button Grid.Column="2" Content="리스트 추가" Command="{Binding AddNewListCommand}"/>
+                </Grid>
+
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBox Width="260" PlaceholderText="카드 검색 (제목, 설명, 체크리스트)"
+                             Text="{Binding SearchText}"/>
+                    <ComboBox Width="150" ItemsSource="{Binding LabelFilters}"
+                              SelectedItem="{Binding SelectedLabelFilter}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:LabelFilterOption">
+                                <TextBlock Text="{Binding Name}"/>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button Content="필터 초기화" Command="{Binding ClearFilterCommand}"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- 리스트들을 가로로 나열. 각 항목은 ViewLocator가 BoardListView로 그린다 -->
+        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding Lists}" Margin="12">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="12"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>
