@@ -23,11 +23,46 @@ public sealed class BoardRepository : IBoardRepository
         await db.Database.MigrateAsync(ct);
     }
 
-    public async Task<IReadOnlyList<BoardList>> GetListsAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<Board>> GetBoardsAsync(CancellationToken ct = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(ct);
+        return await db.Boards.AsNoTracking().OrderBy(b => b.Position).ThenBy(b => b.Id).ToListAsync(ct);
+    }
+
+    public async Task<Board> AddBoardAsync(string name, CancellationToken ct = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(ct);
+        var nextPosition = await db.Boards.AnyAsync(ct)
+            ? await db.Boards.MaxAsync(b => b.Position, ct) + 1
+            : 0;
+
+        var board = new Board { Name = name, Position = nextPosition };
+        db.Boards.Add(board);
+        await db.SaveChangesAsync(ct);
+        return board;
+    }
+
+    public async Task RenameBoardAsync(int boardId, string name, CancellationToken ct = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(ct);
+        await db.Boards
+            .Where(b => b.Id == boardId)
+            .ExecuteUpdateAsync(s => s.SetProperty(b => b.Name, name), ct);
+    }
+
+    public async Task DeleteBoardAsync(int boardId, CancellationToken ct = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(ct);
+        // 리스트와 카드(그리고 체크리스트, 라벨 연결)는 FK의 Cascade 설정으로 함께 삭제된다.
+        await db.Boards.Where(b => b.Id == boardId).ExecuteDeleteAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<BoardList>> GetListsAsync(int boardId, CancellationToken ct = default)
     {
         await using var db = await _factory.CreateDbContextAsync(ct);
         var lists = await db.Lists
             .AsNoTracking()
+            .Where(l => l.BoardId == boardId)
             .Include(l => l.Cards.OrderBy(c => c.Position))
                 .ThenInclude(c => c.Labels.OrderBy(x => x.Id))
             .Include(l => l.Cards)
@@ -43,14 +78,15 @@ public sealed class BoardRepository : IBoardRepository
         return await db.Labels.AsNoTracking().OrderBy(l => l.Id).ToListAsync(ct);
     }
 
-    public async Task<BoardList> AddListAsync(string name, CancellationToken ct = default)
+    public async Task<BoardList> AddListAsync(int boardId, string name, CancellationToken ct = default)
     {
         await using var db = await _factory.CreateDbContextAsync(ct);
-        var nextPosition = await db.Lists.AnyAsync(ct)
-            ? await db.Lists.MaxAsync(l => l.Position, ct) + 1
+        var inBoard = db.Lists.Where(l => l.BoardId == boardId);
+        var nextPosition = await inBoard.AnyAsync(ct)
+            ? await inBoard.MaxAsync(l => l.Position, ct) + 1
             : 0;
 
-        var list = new BoardList { Name = name, Position = nextPosition };
+        var list = new BoardList { BoardId = boardId, Name = name, Position = nextPosition };
         db.Lists.Add(list);
         await db.SaveChangesAsync(ct);
         return list;

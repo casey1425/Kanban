@@ -8,13 +8,23 @@ public interface IBoardRepository
     /// <summary>저장소를 준비한다(DB 생성/마이그레이션). 다른 메서드보다 먼저 한 번 호출한다.</summary>
     Task InitializeAsync(CancellationToken ct = default);
 
-    /// <summary>모든 리스트를 순서대로, 각 리스트의 카드도 순서대로 가져온다.</summary>
-    Task<IReadOnlyList<BoardList>> GetListsAsync(CancellationToken ct = default);
+    /// <summary>모든 보드를 순서대로 가져온다(리스트와 카드는 포함하지 않는다).</summary>
+    Task<IReadOnlyList<Board>> GetBoardsAsync(CancellationToken ct = default);
 
-    /// <summary>선택 가능한 모든 라벨.</summary>
+    Task<Board> AddBoardAsync(string name, CancellationToken ct = default);
+
+    Task RenameBoardAsync(int boardId, string name, CancellationToken ct = default);
+
+    /// <summary>보드와 그 안의 모든 리스트, 카드를 삭제한다.</summary>
+    Task DeleteBoardAsync(int boardId, CancellationToken ct = default);
+
+    /// <summary>보드의 리스트를 순서대로, 각 리스트의 카드도 순서대로 가져온다.</summary>
+    Task<IReadOnlyList<BoardList>> GetListsAsync(int boardId, CancellationToken ct = default);
+
+    /// <summary>선택 가능한 모든 라벨(보드와 무관하게 공통).</summary>
     Task<IReadOnlyList<Label>> GetLabelsAsync(CancellationToken ct = default);
 
-    Task<BoardList> AddListAsync(string name, CancellationToken ct = default);
+    Task<BoardList> AddListAsync(int boardId, string name, CancellationToken ct = default);
 
     Task DeleteListAsync(int listId, CancellationToken ct = default);
 

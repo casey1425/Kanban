@@ -18,6 +18,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly IBoardRepository _repository;
     private readonly ISettingsService _settings;
     private IReadOnlyList<Label> _labels = Array.Empty<Label>();
+    private int _boardId;
 
     public string BoardTitle { get; } = "My Kanban Board";
 
@@ -127,7 +128,10 @@ public partial class MainWindowViewModel : ViewModelBase
                 LabelFilters.Add(new LabelFilterOption(label.Id, label.Name));
             SelectedLabelFilter = LabelFilters[0];
 
-            var lists = await _repository.GetListsAsync();
+            var boards = await _repository.GetBoardsAsync();
+            _boardId = boards.Count > 0 ? boards[0].Id : (await _repository.AddBoardAsync("My Kanban Board")).Id;
+
+            var lists = await _repository.GetListsAsync(_boardId);
             if (lists.Count == 0)
                 lists = await SeedDefaultBoardAsync();
 
@@ -142,12 +146,12 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private async Task<IReadOnlyList<BoardList>> SeedDefaultBoardAsync()
     {
-        var todo = await _repository.AddListAsync("To Do");
-        await _repository.AddListAsync("In Progress");
-        await _repository.AddListAsync("Done");
+        var todo = await _repository.AddListAsync(_boardId, "To Do");
+        await _repository.AddListAsync(_boardId, "In Progress");
+        await _repository.AddListAsync(_boardId, "Done");
         await _repository.AddCardAsync(todo.Id, "카드를 드래그해서 옮겨 보세요", "✎로 제목을 수정하고 ✕로 삭제할 수 있어요");
 
-        return await _repository.GetListsAsync();
+        return await _repository.GetListsAsync(_boardId);
     }
 
     private BoardListViewModel CreateListViewModel(BoardList model)
@@ -167,7 +171,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         return RunSafeAsync(async () =>
         {
-            var model = await _repository.AddListAsync(name);
+            var model = await _repository.AddListAsync(_boardId, name);
             Lists.Add(CreateListViewModel(model));
         }, "리스트를 추가하지 못했어요");
     }

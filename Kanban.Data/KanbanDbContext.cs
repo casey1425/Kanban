@@ -9,6 +9,8 @@ public class KanbanDbContext : DbContext
     {
     }
 
+    public DbSet<Board> Boards => Set<Board>();
+
     public DbSet<BoardList> Lists => Set<BoardList>();
 
     public DbSet<Card> Cards => Set<Card>();
@@ -19,6 +21,15 @@ public class KanbanDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<Board>(e =>
+        {
+            e.Property(b => b.Name).IsRequired().HasMaxLength(100);
+            e.HasMany(b => b.Lists)
+                .WithOne(l => l.Board)
+                .HasForeignKey(l => l.BoardId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<BoardList>(e =>
         {
             e.Property(l => l.Name).IsRequired().HasMaxLength(100);

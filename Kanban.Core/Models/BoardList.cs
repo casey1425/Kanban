@@ -9,5 +9,9 @@ public class BoardList
     /// <summary>보드 안에서의 순서(0부터).</summary>
     public int Position { get; set; }
 
+    public int BoardId { get; set; }
+
+    public Board? Board { get; set; }
+
     public List<Card> Cards { get; set; } = new();
 }

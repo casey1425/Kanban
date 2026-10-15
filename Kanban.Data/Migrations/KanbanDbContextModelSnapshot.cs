@@ -32,7 +32,7 @@ namespace Kanban.Data.Migrations
                     b.ToTable("CardLabel");
                 });
 
-            modelBuilder.Entity("Kanban.Core.Models.BoardList", b =>
+            modelBuilder.Entity("Kanban.Core.Models.Board", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -47,6 +47,30 @@ namespace Kanban.Data.Migrations
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
+
+                    b.ToTable("Boards");
+                });
+
+            modelBuilder.Entity("Kanban.Core.Models.BoardList", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("BoardId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoardId");
 
                     b.ToTable("Lists");
                 });
@@ -182,6 +206,17 @@ namespace Kanban.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Kanban.Core.Models.BoardList", b =>
+                {
+                    b.HasOne("Kanban.Core.Models.Board", "Board")
+                        .WithMany("Lists")
+                        .HasForeignKey("BoardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Board");
+                });
+
             modelBuilder.Entity("Kanban.Core.Models.Card", b =>
                 {
                     b.HasOne("Kanban.Core.Models.BoardList", "List")
@@ -202,6 +237,11 @@ namespace Kanban.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Card");
+                });
+
+            modelBuilder.Entity("Kanban.Core.Models.Board", b =>
+                {
+                    b.Navigation("Lists");
                 });
 
             modelBuilder.Entity("Kanban.Core.Models.BoardList", b =>
