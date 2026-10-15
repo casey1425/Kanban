@@ -1,4 +1,7 @@
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -98,5 +101,37 @@ public sealed class UiSmokeTests : IDisposable
             .Select(v => ((CardViewModel)v.DataContext!).Title)
             .ToList();
         Assert.Equal(new[] { "second" }, visibleTitles);
+    }
+
+    [AvaloniaFact]
+    public async Task Clicking_a_card_with_the_mouse_opens_the_detail_panel()
+    {
+        var (window, viewModel) = await ShowWindowAsync();
+        var cardView = window.GetVisualDescendants().OfType<CardView>().First();
+        var center = cardView
+            .TranslatePoint(new Point(cardView.Bounds.Width / 2, cardView.Bounds.Height / 2), window)!.Value;
+
+        // 실제 사용자처럼: 누르고, 움직이지 않고 뗀다.
+        window.MouseDown(center, MouseButton.Left);
+        window.MouseUp(center, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.NotNull(viewModel.Detail);
+    }
+
+    [AvaloniaFact]
+    public async Task Pressing_the_edit_button_does_not_open_the_detail_panel()
+    {
+        var (window, viewModel) = await ShowWindowAsync();
+        var cardView = window.GetVisualDescendants().OfType<CardView>().First();
+        var edit = cardView.GetVisualDescendants().OfType<Button>().First(b => Equals(b.Content, "✎"));
+        var point = edit.TranslatePoint(new Point(edit.Bounds.Width / 2, edit.Bounds.Height / 2), window)!.Value;
+
+        window.MouseDown(point, MouseButton.Left);
+        window.MouseUp(point, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Null(viewModel.Detail);
+        Assert.True(viewModel.Lists[0].Cards[0].IsEditing);
     }
 }
