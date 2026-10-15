@@ -26,7 +26,10 @@
     <Grid x:Name="Root" RowDefinitions="3,Auto,3">
         <Rectangle Grid.Row="0" Classes="above" RadiusX="1.5" RadiusY="1.5"/>
 
+        <!-- 카드 본문을 클릭하면 상세 패널이 열린다(CardView.axaml.cs). 커서와 툴팁으로 알려 준다. -->
         <Border Grid.Row="1" Padding="10" CornerRadius="6"
+                Cursor="Hand"
+                ToolTip.Tip="클릭하면 상세 보기"
                 BorderThickness="1"
                 BorderBrush="{DynamicResource SystemControlBackgroundBaseLowBrush}"
                 Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
@@ -73,9 +76,9 @@
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Top">
-                    <Button Content="✎" Padding="6,2" Command="{Binding BeginEditCommand}"
+                    <Button Content="✎" Padding="6,2" Cursor="Arrow" Command="{Binding BeginEditCommand}"
                             IsVisible="{Binding !IsEditing}"/>
-                    <Button Content="✕" Padding="6,2" Command="{Binding DeleteCommand}"/>
+                    <Button Content="✕" Padding="6,2" Cursor="Arrow" Command="{Binding DeleteCommand}"/>
                 </StackPanel>
             </Grid>
         </Border>
