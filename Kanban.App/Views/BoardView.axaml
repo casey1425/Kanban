@@ -10,9 +10,35 @@
                 Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
             <StackPanel Spacing="10">
                 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
-                    <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="20"
-                               FontWeight="SemiBold" VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis"/>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <!-- 보기 모드 -->
+                        <TextBlock Text="{Binding Name}" FontSize="20" FontWeight="SemiBold"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                   IsVisible="{Binding !IsRenaming}"/>
+                        <Button Content="✎" Padding="6,2" ToolTip.Tip="보드 이름 변경"
+                                Command="{Binding BeginRenameCommand}"
+                                IsVisible="{Binding IsViewing}"/>
+                        <Button Content="보드 삭제" Padding="8,2" ToolTip.Tip="이 보드와 모든 카드를 삭제"
+                                Command="{Binding RequestDeleteCommand}"
+                                IsVisible="{Binding ShowDeleteButton}"/>
+
+                        <!-- 이름 변경 모드: Enter 확정, Esc 취소 -->
+                        <TextBox Width="260" Text="{Binding EditName}" IsVisible="{Binding IsRenaming}">
+                            <TextBox.KeyBindings>
+                                <KeyBinding Gesture="Enter" Command="{Binding CommitRenameCommand}"/>
+                                <KeyBinding Gesture="Escape" Command="{Binding CancelRenameCommand}"/>
+                            </TextBox.KeyBindings>
+                        </TextBox>
+
+                        <!-- 삭제 확인 -->
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
+                                    IsVisible="{Binding IsConfirmingDelete}">
+                            <TextBlock Text="이 보드와 모든 카드를 삭제할까요?" Foreground="#C42B1C"
+                                       VerticalAlignment="Center"/>
+                            <Button Content="삭제" Command="{Binding ConfirmDeleteCommand}"/>
+                            <Button Content="취소" Command="{Binding CancelDeleteCommand}"/>
+                        </StackPanel>
+                    </StackPanel>
                     <TextBox Grid.Column="1" Width="200" PlaceholderText="새 리스트 이름"
                              Text="{Binding NewListName}">
                         <TextBox.KeyBindings>

@@ -12,4 +12,7 @@ public enum ThemeMode
 public sealed class AppSettings
 {
     public ThemeMode Theme { get; set; } = ThemeMode.System;
+
+    /// <summary>마지막으로 보던 보드. 다음 실행 때 이 보드를 먼저 연다.</summary>
+    public int? LastBoardId { get; set; }
 }

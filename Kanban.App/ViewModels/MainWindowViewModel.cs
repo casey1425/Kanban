@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -30,8 +31,47 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnSelectedBoardChanged(BoardViewModel? value)
     {
-        if (value is { IsLoaded: false })
+        if (value is null)
+            return;
+
+        if (!value.IsLoaded)
             _ = RunSafeAsync(value.LoadAsync, "보드를 불러오지 못했어요");
+
+        // 다음 실행 때 이 보드부터 열기 위해 기억해 둔다.
+        _settings.Current.LastBoardId = value.Id;
+        SaveSettings();
+    }
+
+    private void SaveSettings()
+    {
+        try
+        {
+            _settings.Save();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"설정을 저장하지 못했어요: {ex.Message}";
+        }
+    }
+
+    private BoardViewModel CreateBoardViewModel(Board model) =>
+        new(model, _repository, _labels, OnBoardDeleted);
+
+    private void OnBoardDeleted(BoardViewModel deleted)
+    {
+        var index = Boards.IndexOf(deleted);
+        Boards.Remove(deleted);
+
+        // 지운 보드를 보고 있었다면, 바로 앞(없으면 첫 번째) 보드로 이동한다.
+        if (SelectedBoard == deleted || SelectedBoard is null)
+            SelectedBoard = Boards[Math.Clamp(index - 1, 0, Boards.Count - 1)];
+    }
+
+    // 보드가 하나뿐이면 삭제 버튼을 숨긴다.
+    private void UpdateCanDelete()
+    {
+        foreach (var board in Boards)
+            board.CanDelete = Boards.Count > 1;
     }
 
     [ObservableProperty]
@@ -52,7 +92,7 @@ public partial class MainWindowViewModel : ViewModelBase
             var model = await _repository.AddBoardAsync(name);
             await CreateDefaultListsAsync(model.Id);
 
-            var board = new BoardViewModel(model, _repository, _labels);
+            var board = CreateBoardViewModel(model);
             await board.LoadAsync();
             Boards.Add(board);
             SelectedBoard = board;
@@ -100,14 +140,7 @@ public partial class MainWindowViewModel : ViewModelBase
     partial void OnThemeModeChanged(ThemeMode value)
     {
         _settings.Current.Theme = value;
-        try
-        {
-            _settings.Save();
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = $"설정을 저장하지 못했어요: {ex.Message}";
-        }
+        SaveSettings();
     }
 
     [RelayCommand]
@@ -131,6 +164,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
         WeakReferenceMessenger.Default.Register<MainWindowViewModel, ErrorOccurred>(
             this, (vm, message) => vm.ErrorMessage = message.Message);
+
+        Boards.CollectionChanged += (_, _) => UpdateCanDelete();
     }
 
     /// <summary>DB를 준비하고 보드 목록을 불러온다. 처음 실행이면 기본 보드에 안내 카드를 만든다.</summary>
@@ -146,14 +181,17 @@ public partial class MainWindowViewModel : ViewModelBase
                 boards = new[] { await _repository.AddBoardAsync(DefaultBoardName) };
 
             foreach (var board in boards)
-                Boards.Add(new BoardViewModel(board, _repository, _labels));
+                Boards.Add(CreateBoardViewModel(board));
 
             if (Boards.Count == 1)
                 await SeedFirstRunBoardAsync(Boards[0]);
 
+            // 마지막으로 보던 보드가 있으면 그것을, 없으면(또는 삭제됐으면) 첫 번째를 연다.
+            var initial = Boards.FirstOrDefault(b => b.Id == _settings.Current.LastBoardId) ?? Boards[0];
+
             // 선택하기 전에 먼저 불러 둔다. (선택하면 불러오기가 백그라운드로 시작되므로)
-            await Boards[0].LoadAsync();
-            SelectedBoard = Boards[0];
+            await initial.LoadAsync();
+            SelectedBoard = initial;
         }
         catch (Exception ex)
         {

@@ -220,11 +220,12 @@ public sealed class MainWindowViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Boards_are_restored_in_order_and_loaded_lazily()
+    public async Task Boards_are_restored_in_order_and_only_the_selected_one_is_loaded()
     {
         var app = await _app.StartAsync();
         var second = await AddBoardAsync(app, "Second");
         await AddCardAsync(second.Lists[0], "in second");
+        app.SelectedBoard = app.Boards[0]; // 마지막으로 보던 보드를 첫 번째로 만든다.
 
         var restarted = await _app.StartAsync();
 
@@ -234,6 +235,92 @@ public sealed class MainWindowViewModelTests : IDisposable
 
         await restarted.Boards[1].LoadAsync();
         Assert.Equal("in second", restarted.Boards[1].Lists[0].Cards.Single().Title);
+    }
+
+    [Fact]
+    public async Task Last_viewed_board_is_reopened_after_restart()
+    {
+        var app = await _app.StartAsync();
+        await AddBoardAsync(app, "Second"); // 새 보드는 만들면서 선택된다.
+
+        var restarted = await _app.StartAsync();
+
+        Assert.Equal("Second", restarted.SelectedBoard!.Name);
+        Assert.True(restarted.SelectedBoard.IsLoaded);
+    }
+
+    [Fact]
+    public async Task Renaming_a_board_is_saved_and_blank_names_are_ignored()
+    {
+        var app = await _app.StartAsync();
+        var board = app.SelectedBoard!;
+
+        board.BeginRenameCommand.Execute(null);
+        board.EditName = "   ";
+        await board.CommitRenameCommand.ExecuteAsync(null);
+        Assert.Equal("My Kanban Board", board.Name);
+        Assert.False(board.IsRenaming);
+
+        board.BeginRenameCommand.Execute(null);
+        board.EditName = "  새 이름  ";
+        await board.CommitRenameCommand.ExecuteAsync(null);
+        Assert.Equal("새 이름", board.Name);
+
+        var restarted = await _app.StartAsync();
+        Assert.Equal("새 이름", restarted.Boards[0].Name);
+    }
+
+    [Fact]
+    public async Task Rename_can_be_cancelled()
+    {
+        var app = await _app.StartAsync();
+        var board = app.SelectedBoard!;
+
+        board.BeginRenameCommand.Execute(null);
+        board.EditName = "discard me";
+        board.CancelRenameCommand.Execute(null);
+
+        Assert.Equal("My Kanban Board", board.Name);
+        Assert.False(board.IsRenaming);
+    }
+
+    [Fact]
+    public async Task The_only_board_cannot_be_deleted()
+    {
+        var app = await _app.StartAsync();
+        var board = app.SelectedBoard!;
+        Assert.False(board.CanDelete);
+
+        board.RequestDeleteCommand.Execute(null);
+
+        Assert.False(board.IsConfirmingDelete);
+        await board.ConfirmDeleteCommand.ExecuteAsync(null);
+        Assert.Single(app.Boards);
+    }
+
+    [Fact]
+    public async Task Deleting_a_board_needs_confirmation_and_selects_a_neighbour()
+    {
+        var app = await _app.StartAsync();
+        var second = await AddBoardAsync(app, "Second");
+        await AddCardAsync(second.Lists[0], "doomed");
+        Assert.True(second.CanDelete);
+        Assert.True(app.Boards[0].CanDelete);
+
+        second.RequestDeleteCommand.Execute(null);
+        Assert.True(second.IsConfirmingDelete);
+        second.CancelDeleteCommand.Execute(null);
+        Assert.Equal(2, app.Boards.Count); // 취소하면 그대로다.
+
+        second.RequestDeleteCommand.Execute(null);
+        await second.ConfirmDeleteCommand.ExecuteAsync(null);
+
+        Assert.Single(app.Boards);
+        Assert.Same(app.Boards[0], app.SelectedBoard);
+        Assert.False(app.Boards[0].CanDelete); // 하나만 남으면 다시 삭제 불가
+
+        var restarted = await _app.StartAsync();
+        Assert.Equal(new[] { "My Kanban Board" }, restarted.Boards.Select(b => b.Name));
     }
 
     [Fact]

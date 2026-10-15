@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -14,6 +15,7 @@ public partial class BoardViewModel : ViewModelBase
 {
     private readonly IBoardRepository _repository;
     private readonly IReadOnlyList<Label> _labels;
+    private readonly Action<BoardViewModel> _onDeleted;
 
     public int Id { get; }
 
@@ -24,6 +26,75 @@ public partial class BoardViewModel : ViewModelBase
 
     /// <summary>리스트와 카드를 이미 불러왔는지. 보드는 처음 선택될 때 한 번만 불러온다.</summary>
     public bool IsLoaded { get; private set; }
+
+    // ----- 이름 변경 -----
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsViewing))]
+    [NotifyPropertyChangedFor(nameof(ShowDeleteButton))]
+    private bool _isRenaming;
+
+    /// <summary>이름 변경이나 삭제 확인 중이 아닌 평소 상태. 이때만 ✎ / 삭제 버튼을 보여 준다.</summary>
+    public bool IsViewing => !IsRenaming && !IsConfirmingDelete;
+
+    public bool ShowDeleteButton => IsViewing && CanDelete;
+
+    [ObservableProperty]
+    private string _editName = string.Empty;
+
+    [RelayCommand]
+    private void BeginRename()
+    {
+        EditName = Name;
+        IsRenaming = true;
+    }
+
+    [RelayCommand]
+    private Task CommitRenameAsync()
+    {
+        IsRenaming = false;
+        var name = EditName.Trim();
+        if (name.Length == 0 || name == Name)
+            return Task.CompletedTask;
+
+        Name = name;
+        return RunSafeAsync(() => _repository.RenameBoardAsync(Id, name), "보드 이름을 저장하지 못했어요");
+    }
+
+    [RelayCommand]
+    private void CancelRename() => IsRenaming = false;
+
+    // ----- 삭제 (되돌릴 수 없으므로 한 번 더 확인한다) -----
+
+    /// <summary>보드가 둘 이상일 때만 삭제할 수 있다. 마지막 보드는 남겨 둔다.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowDeleteButton))]
+    private bool _canDelete;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsViewing))]
+    [NotifyPropertyChangedFor(nameof(ShowDeleteButton))]
+    private bool _isConfirmingDelete;
+
+    [RelayCommand]
+    private void RequestDelete() => IsConfirmingDelete = CanDelete;
+
+    [RelayCommand]
+    private void CancelDelete() => IsConfirmingDelete = false;
+
+    [RelayCommand]
+    private Task ConfirmDeleteAsync()
+    {
+        IsConfirmingDelete = false;
+        if (!CanDelete)
+            return Task.CompletedTask;
+
+        return RunSafeAsync(async () =>
+        {
+            await _repository.DeleteBoardAsync(Id);
+            _onDeleted(this);
+        }, "보드를 삭제하지 못했어요");
+    }
 
     // ----- 리스트 추가 -----
 
@@ -42,10 +113,15 @@ public partial class BoardViewModel : ViewModelBase
     [ObservableProperty]
     private LabelFilterOption? _selectedLabelFilter;
 
-    public BoardViewModel(Board model, IBoardRepository repository, IReadOnlyList<Label> labels)
+    public BoardViewModel(
+        Board model,
+        IBoardRepository repository,
+        IReadOnlyList<Label> labels,
+        Action<BoardViewModel> onDeleted)
     {
         _repository = repository;
         _labels = labels;
+        _onDeleted = onDeleted;
         Id = model.Id;
         _name = model.Name;
 
