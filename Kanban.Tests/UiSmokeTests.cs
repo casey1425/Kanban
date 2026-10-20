@@ -2,9 +2,11 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
+using Avalonia.Input.Raw;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Kanban.App;
 using Kanban.App.ViewModels;
 using Kanban.App.Views;
 using Kanban.Tests.Support;
@@ -160,5 +162,74 @@ public sealed class UiSmokeTests : IDisposable
         Dispatcher.UIThread.RunJobs();
 
         Assert.DoesNotContain("only in second", VisibleCardTitles());
+    }
+
+    // ----- 사이드바로 카드 드래그 (헤드리스 드래그 앤 드롭 시뮬레이션) -----
+
+    private static DataTransfer TransferOf(CardViewModel card)
+    {
+        // CardView가 드래그를 시작할 때 만드는 것과 같은 모양: 텍스트 + 앱 내부 형식
+        var item = DataTransferItem.CreateText(card.Title);
+        item.Set(DragFormats.Card, card);
+        var transfer = new DataTransfer();
+        transfer.Add(item);
+        return transfer;
+    }
+
+    private static Point CenterOf(Visual target, Visual window) =>
+        target.TranslatePoint(new Point(target.Bounds.Width / 2, target.Bounds.Height / 2), window)!.Value;
+
+    [AvaloniaFact]
+    public async Task Dropping_a_card_on_another_board_in_the_sidebar_moves_it_and_shows_a_notice()
+    {
+        var (window, viewModel) = await ShowWindowAsync();
+        viewModel.NewBoardName = "Second";
+        await viewModel.AddNewBoardCommand.ExecuteAsync(null);
+        var second = viewModel.SelectedBoard!;
+        viewModel.SelectedBoard = viewModel.Boards[0];
+        Dispatcher.UIThread.RunJobs();
+
+        var card = viewModel.SelectedBoard!.Lists[0].Cards[0];
+        var secondItem = window.GetVisualDescendants().OfType<ListBoxItem>()
+            .Single(i => ReferenceEquals(i.DataContext, second));
+        var point = CenterOf(secondItem, window);
+        var transfer = TransferOf(card);
+
+        window.DragDrop(point, RawDragEventType.DragEnter, transfer, DragDropEffects.Move);
+        window.DragDrop(point, RawDragEventType.DragOver, transfer, DragDropEffects.Move);
+        Assert.Contains("drop-target", secondItem.Classes);   // 놓을 보드가 강조된다.
+
+        window.DragDrop(point, RawDragEventType.Drop, transfer, DragDropEffects.Move);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.DoesNotContain("drop-target", secondItem.Classes);
+        Assert.Contains(card, second.Lists[0].Cards);
+        Assert.Same(second.Lists[0], card.Owner);
+        Assert.Contains("Second", viewModel.InfoMessage);
+    }
+
+    [AvaloniaFact]
+    public async Task Dragging_a_card_over_its_own_board_is_not_a_drop_target()
+    {
+        var (window, viewModel) = await ShowWindowAsync();
+        viewModel.NewBoardName = "Second";
+        await viewModel.AddNewBoardCommand.ExecuteAsync(null);
+        viewModel.SelectedBoard = viewModel.Boards[0];
+        Dispatcher.UIThread.RunJobs();
+
+        var card = viewModel.SelectedBoard!.Lists[0].Cards[0];
+        var ownItem = window.GetVisualDescendants().OfType<ListBoxItem>()
+            .Single(i => ReferenceEquals(i.DataContext, viewModel.Boards[0]));
+        var point = CenterOf(ownItem, window);
+        var transfer = TransferOf(card);
+
+        window.DragDrop(point, RawDragEventType.DragOver, transfer, DragDropEffects.Move);
+        Assert.DoesNotContain("drop-target", ownItem.Classes);
+
+        window.DragDrop(point, RawDragEventType.Drop, transfer, DragDropEffects.Move);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Same(viewModel.Boards[0].Lists[0], card.Owner);
+        Assert.Null(viewModel.InfoMessage);
     }
 }
