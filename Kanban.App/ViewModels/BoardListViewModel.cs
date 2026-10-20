@@ -99,7 +99,10 @@ public partial class BoardListViewModel : ViewModelBase
     /// 카드를 이 리스트의 index 위치로 옮기고(화면), 영향받은 리스트의 순서를 저장한다(DB).
     /// 화면 먼저 바꾸므로 드롭 직후 바로 반영된다.
     /// </summary>
-    public Task MoveCardHereAsync(CardViewModel card, int index)
+    public Task MoveCardHereAsync(CardViewModel card, int index) => TryMoveCardHereAsync(card, index);
+
+    /// <summary>MoveCardHereAsync와 같지만, 저장까지 성공했는지 알려 준다.</summary>
+    public Task<bool> TryMoveCardHereAsync(CardViewModel card, int index)
     {
         var source = card.Owner;
         InsertCard(card, index);
@@ -108,7 +111,7 @@ public partial class BoardListViewModel : ViewModelBase
         if (source is not null && source != this)
             orders.Add(OrderOf(source));
 
-        return RunSafeAsync(() => _repository.SaveCardOrderAsync(orders), "카드 위치를 저장하지 못했어요");
+        return TryRunAsync(() => _repository.SaveCardOrderAsync(orders), "카드 위치를 저장하지 못했어요");
     }
 
     private static ListCardOrder OrderOf(BoardListViewModel list) =>

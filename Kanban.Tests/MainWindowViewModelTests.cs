@@ -338,4 +338,125 @@ public sealed class MainWindowViewModelTests : IDisposable
         Assert.True(second.Lists[0].Cards.All(c => c.IsMatch));
         Assert.DoesNotContain(first.Lists.SelectMany(l => l.Cards), c => c.Title == "only in second");
     }
+
+    // ----- 카드를 다른 보드로 옮기기 -----
+
+    [Fact]
+    public async Task Card_moves_to_the_end_of_the_first_list_of_another_board_and_stays_after_restart()
+    {
+        var app = await _app.StartAsync();
+        var first = app.SelectedBoard!;
+        var second = await AddBoardAsync(app, "Second");
+        await AddCardAsync(second.Lists[0], "already there");
+        app.SelectedBoard = first;
+
+        await AddCardAsync(first.Lists[0], "traveler");
+        var card = first.Lists[0].Cards.Single(c => c.Title == "traveler");
+
+        await app.MoveCardToBoardAsync(card, second);
+
+        Assert.DoesNotContain(first.Lists.SelectMany(l => l.Cards), c => c.Title == "traveler");
+        Assert.Equal(new[] { "already there", "traveler" }, second.Lists[0].Cards.Select(c => c.Title));
+        Assert.Same(second.Lists[0], card.Owner);
+        Assert.Null(app.ErrorMessage);
+        Assert.Contains("Second", app.InfoMessage);
+
+        var restarted = await _app.StartAsync();
+        var restoredSecond = restarted.Boards.Single(b => b.Name == "Second");
+        await restoredSecond.LoadAsync();
+        Assert.Equal(new[] { "already there", "traveler" }, restoredSecond.Lists[0].Cards.Select(c => c.Title));
+        Assert.DoesNotContain(restarted.Boards[0].Lists.SelectMany(l => l.Cards), c => c.Title == "traveler");
+    }
+
+    [Fact]
+    public async Task Moving_to_a_board_that_is_not_loaded_yet_loads_it_first()
+    {
+        var app = await _app.StartAsync();
+        await AddBoardAsync(app, "Second");
+
+        var restarted = await _app.StartAsync();           // 마지막 보드(Second)가 열린 상태로 시작
+        var other = restarted.Boards.Single(b => b.Name == "My Kanban Board");
+        Assert.False(other.IsLoaded);
+
+        await AddCardAsync(restarted.SelectedBoard!.Lists[0], "to move");
+        var card = restarted.SelectedBoard.Lists[0].Cards.Single(c => c.Title == "to move");
+
+        await restarted.MoveCardToBoardAsync(card, other);
+
+        Assert.True(other.IsLoaded);
+        Assert.Contains("to move", other.Lists[0].Cards.Select(c => c.Title));
+        Assert.Null(restarted.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Moving_to_the_same_board_does_nothing()
+    {
+        var app = await _app.StartAsync();
+        var board = app.SelectedBoard!;
+        var card = board.Lists[0].Cards[0];
+
+        await app.MoveCardToBoardAsync(card, board);
+
+        Assert.Same(board.Lists[0], card.Owner);
+        Assert.Null(app.InfoMessage);
+    }
+
+    [Fact]
+    public async Task Moving_to_a_board_without_lists_shows_an_error_and_keeps_the_card()
+    {
+        var app = await _app.StartAsync();
+        var first = app.SelectedBoard!;
+        var empty = await AddBoardAsync(app, "Empty");
+        foreach (var list in empty.Lists.ToList())
+            await list.DeleteCommand.ExecuteAsync(null);
+        app.SelectedBoard = first;
+        var card = first.Lists[0].Cards[0];
+
+        await app.MoveCardToBoardAsync(card, empty);
+
+        Assert.Contains("Empty", app.ErrorMessage);
+        Assert.Same(first.Lists[0], card.Owner);
+        Assert.Null(app.InfoMessage);
+    }
+
+    [Fact]
+    public async Task Labels_checklist_and_due_date_survive_a_board_move()
+    {
+        var app = await _app.StartAsync();
+        var first = app.SelectedBoard!;
+        var second = await AddBoardAsync(app, "Second");
+        app.SelectedBoard = first;
+
+        var card = first.Lists[0].Cards[0];
+        await card.LabelOptions[0].ToggleCommand.ExecuteAsync(null);
+        card.NewChecklistText = "item";
+        await card.AddChecklistItemCommand.ExecuteAsync(null);
+        card.DueDate = new DateOnly(2031, 2, 3);
+        await card.SaveAsync();
+
+        await app.MoveCardToBoardAsync(card, second);
+
+        var restarted = await _app.StartAsync();
+        var restoredSecond = restarted.Boards.Single(b => b.Name == "Second");
+        await restoredSecond.LoadAsync();
+        var moved = restoredSecond.Lists[0].Cards.Single();
+        Assert.Equal(new[] { 1 }, moved.LabelOptions.Where(o => o.IsSelected).Select(o => o.Id));
+        Assert.Equal("item", moved.Checklist.Single().Text);
+        Assert.Equal(new DateOnly(2031, 2, 3), moved.DueDate);
+    }
+
+    [Fact]
+    public async Task Info_message_is_cleared_when_the_board_changes()
+    {
+        var app = await _app.StartAsync();
+        var first = app.SelectedBoard!;
+        var second = await AddBoardAsync(app, "Second");
+        app.SelectedBoard = first;
+        await app.MoveCardToBoardAsync(first.Lists[0].Cards[0], second);
+        Assert.NotNull(app.InfoMessage);
+
+        app.SelectedBoard = second;
+
+        Assert.Null(app.InfoMessage);
+    }
 }

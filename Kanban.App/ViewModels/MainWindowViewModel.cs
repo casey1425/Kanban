@@ -31,6 +31,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnSelectedBoardChanged(BoardViewModel? value)
     {
+        InfoMessage = null; // 보드를 바꾸면 이전 안내는 지운다.
+
         if (value is null)
             return;
 
@@ -78,6 +80,29 @@ public partial class MainWindowViewModel : ViewModelBase
     [NotifyCanExecuteChangedFor(nameof(AddNewBoardCommand))]
     private string _newBoardName = string.Empty;
 
+    /// <summary>
+    /// 카드를 다른 보드의 첫 리스트 맨 끝으로 옮긴다. 같은 보드이면 아무것도 하지 않는다.
+    /// 대상 보드를 아직 불러오지 않았다면 먼저 불러온다.
+    /// </summary>
+    public Task MoveCardToBoardAsync(CardViewModel card, BoardViewModel target) => RunSafeAsync(async () =>
+    {
+        if (card.Owner is null || target.Lists.Contains(card.Owner))
+            return;
+
+        await target.LoadAsync();
+
+        var list = target.Lists.FirstOrDefault();
+        if (list is null)
+        {
+            ErrorMessage = $"\"{target.Name}\" 보드에 리스트가 없어서 카드를 옮길 수 없어요";
+            return;
+        }
+
+        var title = card.Title;
+        if (await list.TryMoveCardHereAsync(card, list.Cards.Count))
+            InfoMessage = $"\"{title}\" 카드를 \"{target.Name}\" 보드로 옮겼어요";
+    }, "카드를 다른 보드로 옮기지 못했어요");
+
     private bool CanAddNewBoard() => !string.IsNullOrWhiteSpace(NewBoardName);
 
     /// <summary>새 보드를 만들고(기본 리스트 3개 포함) 바로 그 보드로 이동한다.</summary>
@@ -116,6 +141,13 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>열려 있는 카드 상세 패널. null이면 닫혀 있다.</summary>
     [ObservableProperty]
     private CardDetailViewModel? _detail;
+
+    /// <summary>작업 결과 안내(오류가 아닌 알림). 사용자가 닫거나 보드를 바꾸면 사라진다.</summary>
+    [ObservableProperty]
+    private string? _infoMessage;
+
+    [RelayCommand]
+    private void DismissInfo() => InfoMessage = null;
 
     [RelayCommand]
     private void DismissError() => ErrorMessage = null;
