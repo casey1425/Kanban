@@ -280,20 +280,20 @@ public sealed class UiSmokeTests : IDisposable
 
         Button Find(string glyph) => window.GetVisualDescendants().OfType<Button>().Single(b => Equals(b.Content, glyph));
 
-        Assert.False(Find("↶").IsEffectivelyEnabled);   // 처음에는 되돌릴 게 없다
-        Assert.False(Find("↷").IsEffectivelyEnabled);
+        Assert.False(Find("실행 취소").IsEffectivelyEnabled);   // 처음에는 되돌릴 게 없다
+        Assert.False(Find("다시 실행").IsEffectivelyEnabled);
 
         var list = viewModel.SelectedBoard!.Lists[0];
         list.NewCardTitle = "x";
         await list.AddNewCardCommand.ExecuteAsync(null);
         Dispatcher.UIThread.RunJobs();
-        Assert.True(Find("↶").IsEffectivelyEnabled);
-        Assert.False(Find("↷").IsEffectivelyEnabled);
+        Assert.True(Find("실행 취소").IsEffectivelyEnabled);
+        Assert.False(Find("다시 실행").IsEffectivelyEnabled);
 
         await viewModel.UndoCommand.ExecuteAsync(null);
         Dispatcher.UIThread.RunJobs();
-        Assert.False(Find("↶").IsEffectivelyEnabled);
-        Assert.True(Find("↷").IsEffectivelyEnabled);
+        Assert.False(Find("실행 취소").IsEffectivelyEnabled);
+        Assert.True(Find("다시 실행").IsEffectivelyEnabled);
     }
 
     // 키 입력으로 시작된 비동기 명령(되돌리기)이 끝날 때까지 기다린다.

@@ -52,18 +52,20 @@
                                 Command="{Binding AddNewBoardCommand}"/>
                     </StackPanel>
 
-                    <!-- 보드 제목줄 + 실행 취소 / 다시 실행 -->
-                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4"
-                          Margin="4,0,0,6">
-                        <TextBlock Grid.Column="0" Text="보드" FontWeight="SemiBold" Opacity="0.7"
-                                   VerticalAlignment="Center"/>
-                        <Button Grid.Column="1" Content="↶" Padding="8,2"
+                    <!-- 실행 취소 / 다시 실행 (Ctrl+Z / Ctrl+Shift+Z) -->
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,*" ColumnSpacing="6" Margin="0,0,0,12">
+                        <Button Grid.Column="0" Content="실행 취소"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                 Command="{Binding UndoCommand}"
                                 ToolTip.Tip="{Binding UndoToolTip}" ToolTip.ShowOnDisabled="True"/>
-                        <Button Grid.Column="2" Content="↷" Padding="8,2"
+                        <Button Grid.Column="1" Content="다시 실행"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                 Command="{Binding RedoCommand}"
                                 ToolTip.Tip="{Binding RedoToolTip}" ToolTip.ShowOnDisabled="True"/>
                     </Grid>
+
+                    <TextBlock DockPanel.Dock="Top" Text="보드" FontWeight="SemiBold"
+                               Opacity="0.7" Margin="4,0,0,6"/>
 
                     <!-- 카드를 이 목록의 보드 위로 끌어다 놓으면 그 보드로 옮긴다 -->
                     <ListBox x:Name="BoardList" DragDrop.AllowDrop="True"
