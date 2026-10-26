@@ -20,6 +20,7 @@ Avalonia를 학습하면서 단계별로 기능을 쌓아간 개인 프로젝트
 
 ## 기능
 
+- [x] 실행 취소 / 다시 실행: 카드 이동·추가·삭제·수정, 리스트 추가·삭제를 되돌립니다 ([단축키](#단축키))
 - [x] 여러 보드: 사이드바에서 만들기·전환·이름 변경·삭제 (마지막으로 본 보드를 기억)
 - [x] 카드를 사이드바의 다른 보드로 끌어다 놓아 이동 (그 보드의 첫 리스트 맨 끝으로)
 - [x] 보드, 리스트, 카드 표시
@@ -31,6 +32,18 @@ Avalonia를 학습하면서 단계별로 기능을 쌓아간 개인 프로젝트
 - [x] 카드 검색(제목·설명·체크리스트)과 라벨 필터 (보드마다 따로)
 - [x] 다크 / 라이트 / 시스템 테마 전환(설정 저장)
 - [x] 저장 실패 시 오류 배너 표시
+
+## 단축키
+
+| 동작 | Windows / Linux | macOS |
+|---|---|---|
+| 실행 취소 | `Ctrl+Z` | `Cmd+Z` |
+| 다시 실행 | `Ctrl+Shift+Z` 또는 `Ctrl+Y` | `Cmd+Shift+Z` |
+
+- 사이드바의 **실행 취소 / 다시 실행** 버튼으로도 할 수 있습니다. 버튼에 마우스를 올리면 무엇을 되돌릴지 보입니다.
+- 되돌리면 그 작업이 일어난 보드로 자동 이동합니다. 삭제한 카드·리스트는 라벨, 체크리스트, 마감일까지 **같은 Id로** 복원됩니다.
+- 라벨과 체크리스트 변경, 보드 생성·삭제·이름 변경은 되돌릴 수 없습니다. 기록은 앱을 끄면 사라지고, 보드를 삭제하면 비워집니다.
+- 카드 상세 패널이 열려 있는 동안에는 비활성화됩니다(편집 중인 카드가 사라지는 것을 막기 위해).
 
 ## 기술 스택
 
@@ -76,7 +89,7 @@ dotnet test
 
 - 저장소(SQLite)와 ViewModel 동작은 임시 DB를 만들어 실제로 저장하고 다시 불러오며 검증합니다.
 - 마이그레이션은 "이전 버전 스키마의 DB에 데이터를 넣고 최신으로 올려도 보존되는지"까지 테스트합니다.
-- 화면(XAML)은 Avalonia 헤드리스 렌더러로 그려서, 라벨 표시나 바인딩 오류 같은 문제를 확인합니다. 클릭과 드래그 앤 드롭도 헤드리스에서 이벤트를 시뮬레이션해 검증합니다.
+- 화면(XAML)은 Avalonia 헤드리스 렌더러로 그려서, 라벨 표시나 바인딩 오류 같은 문제를 확인합니다. 클릭, 드래그 앤 드롭, 키보드 단축키도 헤드리스에서 이벤트를 시뮬레이션해 검증합니다.
 - GitHub Actions가 push마다 Ubuntu / Windows / macOS에서 빌드와 테스트를 실행합니다.
 
 ## 프로젝트 구조
@@ -90,7 +103,8 @@ Kanban/
 └── Kanban.App/           # Avalonia UI
     ├── ViewModels/       # MainWindow(보드 목록·설정), Board, BoardList, Card, CardDetail ...
     ├── Views/            # *.axaml
-    ├── Messages/         # ViewModel 간 메시지 (OpenCardRequested, ErrorOccurred)
+    ├── Messages/         # ViewModel 간 메시지 (OpenCardRequested, ErrorOccurred, ActionPerformed)
+    ├── Undo/             # 실행 취소 기록(UndoHistory)과 되돌릴 수 있는 작업들
     ├── Services/         # 설정 저장(JSON)
     └── ViewLocator.cs    # ViewModel → View 자동 연결
 ```
@@ -99,6 +113,7 @@ Kanban/
 - **MVVM**: View는 바인딩과 입력 이벤트만 다루고, 상태와 동작은 ViewModel이 가집니다.
 - **ViewLocator**: ViewModel 이름 규칙으로 View를 자동 연결하므로 `ItemTemplate`을 따로 지정하지 않습니다.
 - **Messenger**: 카드가 창을 직접 알지 못한 채 `OpenCardRequested` 메시지로 상세 패널을 요청합니다.
+- **실행 취소**: ViewModel이 작업 후 `ActionPerformed` 메시지를 보내면 `UndoHistory`가 쌓습니다. 삭제는 스키마 변경 없이 "같은 Id로 다시 삽입"해 복원합니다(SQLite `AUTOINCREMENT`는 Id를 재사용하지 않습니다).
 - **커맨드**: `[RelayCommand]`, `[ObservableProperty]` 소스 생성기로 보일러플레이트를 줄였습니다.
 
 ## 데이터 저장 위치
@@ -127,3 +142,4 @@ dotnet ef migrations add <이름> --project Kanban.Data --startup-project Kanban
 | 릴리스 | `v*` 태그를 푸시하면 각 OS용 실행 파일을 자동 빌드해 배포 | v0.1.0 배포 |
 | 확장 1 | 다중 보드 (기존 데이터를 기본 보드로 자동 이전) | 완료 |
 | 확장 2 | 카드를 다른 보드로 이동 (사이드바로 드래그) | 완료 |
+| 확장 3 | 실행 취소 / 다시 실행 | 완료 |
