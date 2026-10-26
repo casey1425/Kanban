@@ -232,4 +232,81 @@ public sealed class UiSmokeTests : IDisposable
         Assert.Same(viewModel.Boards[0].Lists[0], card.Owner);
         Assert.Null(viewModel.InfoMessage);
     }
+
+    // ----- 실행 취소 / 다시 실행 (단축키와 버튼) -----
+
+    [AvaloniaFact]
+    public async Task Ctrl_Z_undoes_and_Ctrl_Shift_Z_redoes_the_last_action()
+    {
+        var (window, viewModel) = await ShowWindowAsync();
+        var list = viewModel.SelectedBoard!.Lists[0];
+        list.NewCardTitle = "to be undone";
+        await list.AddNewCardCommand.ExecuteAsync(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Contains(list.Cards, c => c.Title == "to be undone");
+
+        window.KeyPressQwerty(PhysicalKey.Z, RawInputModifiers.Control);
+        window.KeyReleaseQwerty(PhysicalKey.Z, RawInputModifiers.Control);
+        await WaitForIdleAsync(viewModel);
+        Assert.DoesNotContain(list.Cards, c => c.Title == "to be undone");
+
+        window.KeyPressQwerty(PhysicalKey.Z, RawInputModifiers.Control | RawInputModifiers.Shift);
+        window.KeyReleaseQwerty(PhysicalKey.Z, RawInputModifiers.Control | RawInputModifiers.Shift);
+        await WaitForIdleAsync(viewModel);
+        Assert.Contains(list.Cards, c => c.Title == "to be undone");
+    }
+
+    [AvaloniaFact]
+    public async Task Ctrl_Y_also_redoes()
+    {
+        var (window, viewModel) = await ShowWindowAsync();
+        var list = viewModel.SelectedBoard!.Lists[0];
+        list.NewCardTitle = "again";
+        await list.AddNewCardCommand.ExecuteAsync(null);
+        await viewModel.UndoCommand.ExecuteAsync(null);
+        Assert.DoesNotContain(list.Cards, c => c.Title == "again");
+
+        window.KeyPressQwerty(PhysicalKey.Y, RawInputModifiers.Control);
+        window.KeyReleaseQwerty(PhysicalKey.Y, RawInputModifiers.Control);
+        await WaitForIdleAsync(viewModel);
+
+        Assert.Contains(list.Cards, c => c.Title == "again");
+    }
+
+    [AvaloniaFact]
+    public async Task Undo_and_redo_buttons_follow_the_history()
+    {
+        var (window, viewModel) = await ShowWindowAsync();
+
+        Button Find(string glyph) => window.GetVisualDescendants().OfType<Button>().Single(b => Equals(b.Content, glyph));
+
+        Assert.False(Find("↶").IsEffectivelyEnabled);   // 처음에는 되돌릴 게 없다
+        Assert.False(Find("↷").IsEffectivelyEnabled);
+
+        var list = viewModel.SelectedBoard!.Lists[0];
+        list.NewCardTitle = "x";
+        await list.AddNewCardCommand.ExecuteAsync(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(Find("↶").IsEffectivelyEnabled);
+        Assert.False(Find("↷").IsEffectivelyEnabled);
+
+        await viewModel.UndoCommand.ExecuteAsync(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(Find("↶").IsEffectivelyEnabled);
+        Assert.True(Find("↷").IsEffectivelyEnabled);
+    }
+
+    // 키 입력으로 시작된 비동기 명령(되돌리기)이 끝날 때까지 기다린다.
+    private static async Task WaitForIdleAsync(MainWindowViewModel viewModel)
+    {
+        for (var i = 0; i < 100; i++)
+        {
+            Dispatcher.UIThread.RunJobs();
+            if (viewModel.UndoCommand.IsRunning is false && viewModel.RedoCommand.IsRunning is false)
+                break;
+            await Task.Delay(10);
+        }
+        await Task.Delay(30);
+        Dispatcher.UIThread.RunJobs();
+    }
 }
