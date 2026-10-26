@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Kanban.App.Undo;
 using Kanban.Core;
 using Kanban.Core.Models;
 
@@ -146,9 +147,38 @@ public partial class BoardViewModel : ViewModelBase
 
     private BoardListViewModel CreateListViewModel(BoardList model)
     {
-        var list = new BoardListViewModel(model, _repository, _labels, l => Lists.Remove(l));
+        var list = new BoardListViewModel(model, _repository, _labels, OnListDeleted);
         list.ApplyFilter(SearchText, SelectedLabelFilter?.LabelId); // 필터가 켜진 상태에서 만든 리스트도 맞춘다.
         return list;
+    }
+
+    // 리스트가 삭제(DB까지 완료)된 뒤 불린다. 화면에서 빼고 실행 취소 기록을 남긴다.
+    private void OnListDeleted(BoardListViewModel list)
+    {
+        var index = Lists.IndexOf(list);
+        Lists.Remove(list);
+
+        if (index >= 0)
+            Record(new ListPresenceAction(this, list, index, wasAdded: false));
+    }
+
+    /// <summary>리스트를 삭제하되 실행 취소 기록은 남기지 않는다(기록을 되돌리는 쪽에서 쓴다).</summary>
+    internal async Task RemoveListWithoutHistoryAsync(BoardListViewModel list)
+    {
+        await _repository.DeleteListAsync(list.Id);
+        Lists.Remove(list);
+    }
+
+    /// <summary>
+    /// 삭제했던 리스트를 index 위치에 되살린다. DB에는 카드까지 같은 Id로 다시 만들고,
+    /// 화면에는 같은 인스턴스를 되돌려 놓는다. 기록은 남기지 않는다.
+    /// </summary>
+    internal async Task RestoreListAsync(BoardListViewModel list, int index)
+    {
+        await _repository.RestoreListAsync(list.ToSnapshot());
+
+        Lists.Insert(Math.Clamp(index, 0, Lists.Count), list);
+        list.ApplyFilter(SearchText, SelectedLabelFilter?.LabelId); // 지운 동안 필터가 바뀌었을 수 있다.
     }
 
     private bool CanAddNewList() => !string.IsNullOrWhiteSpace(NewListName);
@@ -162,7 +192,9 @@ public partial class BoardViewModel : ViewModelBase
         return RunSafeAsync(async () =>
         {
             var model = await _repository.AddListAsync(Id, name);
-            Lists.Add(CreateListViewModel(model));
+            var list = CreateListViewModel(model);
+            Lists.Add(list);
+            Record(new ListPresenceAction(this, list, Lists.Count - 1, wasAdded: true));
         }, "리스트를 추가하지 못했어요");
     }
 

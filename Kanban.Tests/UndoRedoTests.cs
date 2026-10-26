@@ -421,4 +421,98 @@ public sealed class UndoRedoTests : IDisposable
         Assert.True(app.History.CanUndo);
         Assert.False(app.History.CanRedo);
     }
+
+    // ----- 리스트 -----
+
+    private static string ListNames(BoardViewModel board) => string.Join(",", board.Lists.Select(l => l.Name));
+
+    [Fact]
+    public async Task Deleting_a_list_can_be_undone_with_its_cards_at_the_same_position()
+    {
+        var app = await _app.StartAsync();
+        var board = await NewBoardAsync(app);               // To Do, In Progress, Done
+        var middle = board.Lists[1];
+        var a = await AddCardAsync(middle, "A");
+        await AddCardAsync(middle, "B");
+        await a.LabelOptions[2].ToggleCommand.ExecuteAsync(null);
+        a.NewChecklistText = "item";
+        await a.AddChecklistItemCommand.ExecuteAsync(null);
+        app.History.Clear();
+
+        await middle.DeleteCommand.ExecuteAsync(null);
+        Assert.Equal("To Do,Done", ListNames(board));
+
+        await UndoAsync(app);
+
+        Assert.Equal("To Do,In Progress,Done", ListNames(board));
+        Assert.Same(middle, board.Lists[1]);                 // 같은 인스턴스, 같은 자리
+        Assert.Equal("A,B", Titles(middle));
+        Assert.Same(middle, a.Owner);
+
+        var restored = (await ReloadBoardAsync("T")).Lists;
+        Assert.Equal(new[] { "To Do", "In Progress", "Done" }, restored.Select(l => l.Name));
+        Assert.Equal("A,B", Titles(restored[1]));
+        Assert.Equal(new[] { 3 }, restored[1].Cards[0].LabelOptions.Where(o => o.IsSelected).Select(o => o.Id));
+        Assert.Equal("item", Assert.Single(restored[1].Cards[0].Checklist).Text);
+
+        await RedoAsync(app);
+        Assert.Equal("To Do,Done", ListNames(board));
+        Assert.Equal("To Do,Done", string.Join(",", (await ReloadBoardAsync("T")).Lists.Select(l => l.Name)));
+    }
+
+    [Fact]
+    public async Task Adding_a_list_can_be_undone_and_redone()
+    {
+        var app = await _app.StartAsync();
+        var board = await NewBoardAsync(app);
+
+        board.NewListName = "Review";
+        await board.AddNewListCommand.ExecuteAsync(null);
+        Assert.Equal("To Do,In Progress,Done,Review", ListNames(board));
+
+        await UndoAsync(app);
+        Assert.Equal("To Do,In Progress,Done", ListNames(board));
+        Assert.Equal(3, (await ReloadBoardAsync("T")).Lists.Count);
+
+        await RedoAsync(app);
+        Assert.Equal("To Do,In Progress,Done,Review", ListNames(board));
+        Assert.Equal(4, (await ReloadBoardAsync("T")).Lists.Count);
+    }
+
+    [Fact]
+    public async Task A_card_deleted_before_its_list_comes_back_after_the_list_does()
+    {
+        var app = await _app.StartAsync();
+        var board = await NewBoardAsync(app);
+        var list = board.Lists[0];
+        await AddCardAsync(list, "keep");
+        var gone = await AddCardAsync(list, "gone");
+        app.History.Clear();
+
+        await gone.DeleteCommand.ExecuteAsync(null);     // 1) 카드 삭제
+        await list.DeleteCommand.ExecuteAsync(null);     // 2) 리스트 삭제
+
+        await UndoAsync(app);                             // 리스트 복원: "gone"은 아직 없다
+        Assert.Equal("keep", Titles(board.Lists[0]));
+
+        await UndoAsync(app);                             // 카드 복원: 방금 복원된 리스트 안으로
+        Assert.Equal("keep,gone", Titles(board.Lists[0]));
+        Assert.Equal("keep,gone", Titles((await ReloadBoardAsync("T")).Lists[0]));
+    }
+
+    [Fact]
+    public async Task A_list_restored_by_undo_matches_the_active_filter()
+    {
+        var app = await _app.StartAsync();
+        var board = await NewBoardAsync(app);
+        var list = board.Lists[0];
+        await AddCardAsync(list, "Apple");
+        app.History.Clear();
+
+        await list.DeleteCommand.ExecuteAsync(null);
+        board.SearchText = "zzz";                         // 지운 동안 필터를 켠다
+        await UndoAsync(app);
+
+        Assert.All(board.Lists[0].Cards, c => Assert.False(c.IsMatch));
+    }
 }

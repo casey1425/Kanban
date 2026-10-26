@@ -55,6 +55,16 @@ public partial class BoardListViewModel : ViewModelBase
             AddCardFromModel(card);
     }
 
+    /// <summary>삭제한 리스트를 DB에 같은 Id로 다시 만들 때 쓰는 전체 스냅샷(카드, 라벨, 체크리스트 포함). 실행 취소용.</summary>
+    internal BoardList ToSnapshot() => new()
+    {
+        Id = Id,
+        BoardId = BoardId,
+        Name = Name,
+        Position = Position,
+        Cards = Cards.Select((card, index) => card.ToSnapshot(Id, index)).ToList(),
+    };
+
     private CardViewModel AddCardFromModel(Card model)
     {
         var card = new CardViewModel(model, _repository, _labels) { Owner = this };
