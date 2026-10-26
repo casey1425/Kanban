@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Kanban.App.Messages;
+using Kanban.App.Undo;
 using Kanban.Core;
 using Kanban.Core.Models;
 
@@ -15,7 +16,8 @@ namespace Kanban.App.ViewModels;
 public partial class CardViewModel : ViewModelBase
 {
     private readonly IBoardRepository _repository;
-    private string _savedTitle;
+    // 마지막으로 저장된 값. 저장할 때 "전/후"를 비교해 실행 취소 기록을 남기는 데 쓴다.
+    private CardEditState _saved;
 
     public int Id { get; }
 
@@ -88,9 +90,9 @@ public partial class CardViewModel : ViewModelBase
         _repository = repository;
         Id = model.Id;
         _title = model.Title;
-        _savedTitle = model.Title;
         _description = model.Description;
         _dueDate = model.DueDate;
+        _saved = new CardEditState(model.Title, NormalizeDescription(model.Description), model.DueDate);
 
         var selectedIds = model.Labels.Select(l => l.Id).ToHashSet();
         LabelOptions = availableLabels
@@ -155,12 +157,38 @@ public partial class CardViewModel : ViewModelBase
         return RunSafeAsync(() => _repository.SetCardLabelsAsync(Id, ids), "라벨을 저장하지 못했어요");
     }
 
+    private static string? NormalizeDescription(string? description) =>
+        string.IsNullOrWhiteSpace(description) ? null : description;
+
+    private CardEditState CurrentState() => new(Title, NormalizeDescription(Description), DueDate);
+
     private Card ToModel() => new()
     {
         Id = Id,
         Title = Title,
-        Description = string.IsNullOrWhiteSpace(Description) ? null : Description,
+        Description = NormalizeDescription(Description),
         DueDate = DueDate,
+    };
+
+    /// <summary>
+    /// 삭제된 카드를 DB에 다시 만들 때 쓰는 전체 스냅샷(라벨, 체크리스트 포함). 실행 취소용.
+    /// </summary>
+    internal Card ToSnapshot(int listId, int position) => new()
+    {
+        Id = Id,
+        ListId = listId,
+        Position = position,
+        Title = Title,
+        Description = NormalizeDescription(Description),
+        DueDate = DueDate,
+        Labels = LabelOptions.Where(o => o.IsSelected).Select(o => new Label { Id = o.Id }).ToList(),
+        ChecklistItems = Checklist.Select((item, index) => new ChecklistItem
+        {
+            Id = item.Id,
+            Text = item.Text,
+            IsDone = item.IsDone,
+            Position = index,
+        }).ToList(),
     };
 
     /// <summary>검색어(제목, 설명, 체크리스트 항목)와 라벨 조건에 모두 일치하는지 판단한다.</summary>
@@ -178,16 +206,37 @@ public partial class CardViewModel : ViewModelBase
             || Checklist.Any(i => i.Text.Contains(text, StringComparison.CurrentCultureIgnoreCase));
     }
 
-    /// <summary>제목, 설명, 마감일을 저장한다. 제목을 비워 둔 경우 마지막으로 저장된 제목으로 되돌린다.</summary>
+    /// <summary>
+    /// 제목, 설명, 마감일을 저장한다. 제목을 비워 둔 경우 마지막으로 저장된 제목으로 되돌린다.
+    /// 값이 실제로 바뀌었다면 실행 취소 기록을 남긴다.
+    /// </summary>
     public Task SaveAsync() => RunSafeAsync(async () =>
     {
         if (string.IsNullOrWhiteSpace(Title))
-            Title = _savedTitle;
+            Title = _saved.Title;
+
+        var before = _saved;
+        var after = CurrentState();
 
         await _repository.UpdateCardAsync(ToModel());
-        _savedTitle = Title;
+        _saved = after;
         Owner?.RefreshFilter(this);
+
+        if (after != before && Owner is { } list)
+            Record(new EditCardAction(this, list.BoardId, before, after));
     }, "카드를 저장하지 못했어요");
+
+    /// <summary>수정 기록을 되돌리거나 다시 실행할 때, 값을 그 상태로 맞추고 저장한다(새 기록은 남기지 않는다).</summary>
+    internal async Task ApplyEditStateAsync(CardEditState state)
+    {
+        Title = state.Title;
+        Description = state.Description;
+        DueDate = state.DueDate;
+
+        await _repository.UpdateCardAsync(ToModel());
+        _saved = state;
+        Owner?.RefreshFilter(this);
+    }
 
     [RelayCommand]
     private void OpenDetail() => WeakReferenceMessenger.Default.Send(new OpenCardRequested(this));

@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Kanban.App.Messages;
 using Kanban.App.Services;
+using Kanban.App.Undo;
 using Kanban.Core;
 using Kanban.Core.Models;
 
@@ -63,6 +64,9 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         var index = Boards.IndexOf(deleted);
         Boards.Remove(deleted);
+
+        // 지워진 보드의 리스트와 카드를 가리키는 기록은 더 이상 유효하지 않다.
+        History.Clear();
 
         // 지운 보드를 보고 있었다면, 바로 앞(없으면 첫 번째) 보드로 이동한다.
         if (SelectedBoard == deleted || SelectedBoard is null)
@@ -132,6 +136,79 @@ public partial class MainWindowViewModel : ViewModelBase
         return todo;
     }
 
+    // ----- 실행 취소 / 다시 실행 -----
+
+    public UndoHistory History { get; } = new();
+
+    // 되돌리는 동안 일어나는 변경이 새 기록으로 남지 않게 막는다.
+    private bool _isReplaying;
+
+    public string UndoToolTip => History.NextUndo is { } action
+        ? $"실행 취소: {action.Description} (Ctrl+Z)"
+        : "실행 취소할 작업이 없어요";
+
+    public string RedoToolTip => History.NextRedo is { } action
+        ? $"다시 실행: {action.Description} (Ctrl+Shift+Z)"
+        : "다시 실행할 작업이 없어요";
+
+    // 상세 패널이 열려 있는 동안에는 되돌리지 않는다. 편집 중인 카드가 사라질 수 있기 때문이다.
+    private bool CanUndo() => History.CanUndo && Detail is null;
+
+    private bool CanRedo() => History.CanRedo && Detail is null;
+
+    private void OnHistoryChanged()
+    {
+        UndoCommand.NotifyCanExecuteChanged();
+        RedoCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(UndoToolTip));
+        OnPropertyChanged(nameof(RedoToolTip));
+    }
+
+    [RelayCommand(CanExecute = nameof(CanUndo))]
+    private Task UndoAsync() => ReplayAsync(undo: true);
+
+    [RelayCommand(CanExecute = nameof(CanRedo))]
+    private Task RedoAsync() => ReplayAsync(undo: false);
+
+    private async Task ReplayAsync(bool undo)
+    {
+        var action = undo ? History.NextUndo : History.NextRedo;
+        if (action is null)
+            return;
+
+        _isReplaying = true;
+        try
+        {
+            // 작업이 일어난 보드를 보여 준 뒤 되돌린다. 안 그러면 화면에서 아무 일도 안 일어난 것처럼 보인다.
+            var boardId = undo ? action.UndoBoardId : action.RedoBoardId;
+            var board = boardId is { } id ? Boards.FirstOrDefault(b => b.Id == id) : null;
+            if (board is not null && board != SelectedBoard)
+            {
+                await board.LoadAsync();
+                SelectedBoard = board;
+            }
+
+            var ok = await TryRunAsync(
+                undo ? action.UndoAsync : action.RedoAsync,
+                undo ? "실행 취소하지 못했어요" : "다시 실행하지 못했어요");
+
+            // 실패하면 기록에 그대로 남겨 둔다. 오류 배너가 이미 떠 있다.
+            if (!ok)
+                return;
+
+            if (undo)
+                History.CompleteUndo();
+            else
+                History.CompleteRedo();
+
+            InfoMessage = $"{(undo ? "실행 취소" : "다시 실행")}: {action.Description}";
+        }
+        finally
+        {
+            _isReplaying = false;
+        }
+    }
+
     // ----- 오류 / 상세 패널 -----
 
     /// <summary>불러오기/저장 실패 시 화면 상단에 보여 줄 메시지. 사용자가 닫을 수 있다.</summary>
@@ -141,6 +218,8 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>열려 있는 카드 상세 패널. null이면 닫혀 있다.</summary>
     [ObservableProperty]
     private CardDetailViewModel? _detail;
+
+    partial void OnDetailChanged(CardDetailViewModel? value) => OnHistoryChanged();
 
     /// <summary>작업 결과 안내(오류가 아닌 알림). 사용자가 닫거나 보드를 바꾸면 사라진다.</summary>
     [ObservableProperty]
@@ -197,6 +276,14 @@ public partial class MainWindowViewModel : ViewModelBase
         WeakReferenceMessenger.Default.Register<MainWindowViewModel, ErrorOccurred>(
             this, (vm, message) => vm.ErrorMessage = message.Message);
 
+        WeakReferenceMessenger.Default.Register<MainWindowViewModel, ActionPerformed>(
+            this, (vm, message) =>
+            {
+                if (!vm._isReplaying)
+                    vm.History.Push(message.Action);
+            });
+
+        History.Changed += (_, _) => OnHistoryChanged();
         Boards.CollectionChanged += (_, _) => UpdateCanDelete();
     }
 
