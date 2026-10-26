@@ -92,6 +92,24 @@ public sealed class BoardRepository : IBoardRepository
         return list;
     }
 
+    public async Task RestoreListAsync(BoardList list, CancellationToken ct = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(ct);
+        var labels = await LoadLabelsAsync(db, list.Cards.SelectMany(c => c.Labels.Select(l => l.Id)), ct);
+
+        var entity = new BoardList
+        {
+            Id = list.Id,
+            BoardId = list.BoardId,
+            Name = list.Name,
+            Position = list.Position,
+            Cards = list.Cards.Select(c => CloneForInsert(c, labels)).ToList(),
+        };
+
+        db.Lists.Add(entity);
+        await db.SaveChangesAsync(ct);
+    }
+
     public async Task DeleteListAsync(int listId, CancellationToken ct = default)
     {
         await using var db = await _factory.CreateDbContextAsync(ct);
@@ -117,6 +135,41 @@ public sealed class BoardRepository : IBoardRepository
         await db.SaveChangesAsync(ct);
         return card;
     }
+
+    public async Task RestoreCardAsync(Card card, CancellationToken ct = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(ct);
+        var labels = await LoadLabelsAsync(db, card.Labels.Select(l => l.Id), ct);
+
+        db.Cards.Add(CloneForInsert(card, labels));
+        await db.SaveChangesAsync(ct);
+    }
+
+    private static async Task<Dictionary<int, Label>> LoadLabelsAsync(
+        KanbanDbContext db, IEnumerable<int> labelIds, CancellationToken ct)
+    {
+        var ids = labelIds.Distinct().ToList();
+        return await db.Labels.Where(l => ids.Contains(l.Id)).ToDictionaryAsync(l => l.Id, ct);
+    }
+
+    // 스냅샷을 DB에 넣을 새 엔티티로 복사한다. Id를 그대로 지정하면 EF가 그 값으로 삽입한다.
+    private static Card CloneForInsert(Card source, IReadOnlyDictionary<int, Label> labels) => new()
+    {
+        Id = source.Id,
+        ListId = source.ListId,
+        Title = source.Title,
+        Description = source.Description,
+        DueDate = source.DueDate,
+        Position = source.Position,
+        Labels = source.Labels.Where(l => labels.ContainsKey(l.Id)).Select(l => labels[l.Id]).ToList(),
+        ChecklistItems = source.ChecklistItems.Select(i => new ChecklistItem
+        {
+            Id = i.Id,
+            Text = i.Text,
+            IsDone = i.IsDone,
+            Position = i.Position,
+        }).ToList(),
+    };
 
     public async Task UpdateCardAsync(Card card, CancellationToken ct = default)
     {

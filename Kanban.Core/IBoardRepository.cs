@@ -26,9 +26,20 @@ public interface IBoardRepository
 
     Task<BoardList> AddListAsync(int boardId, string name, CancellationToken ct = default);
 
+    /// <summary>
+    /// 삭제했던 리스트를 카드, 라벨 연결, 체크리스트까지 포함해 <b>원래 Id 그대로</b> 다시 만든다(실행 취소용).
+    /// </summary>
+    Task RestoreListAsync(BoardList list, CancellationToken ct = default);
+
     Task DeleteListAsync(int listId, CancellationToken ct = default);
 
     Task<Card> AddCardAsync(int listId, string title, string? description, CancellationToken ct = default);
+
+    /// <summary>
+    /// 삭제했던 카드를 라벨 연결, 체크리스트까지 포함해 <b>원래 Id 그대로</b> 다시 만든다(실행 취소용).
+    /// card.ListId의 리스트가 존재해야 한다.
+    /// </summary>
+    Task RestoreCardAsync(Card card, CancellationToken ct = default);
 
     Task UpdateCardAsync(Card card, CancellationToken ct = default);
 

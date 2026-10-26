@@ -220,4 +220,102 @@ public sealed class BoardRepositoryTests : IDisposable
         Assert.Equal("kept", Assert.Single(Assert.Single(lists).Cards).Title);
         Assert.Empty(await repository.GetListsAsync(remove.Id));
     }
+
+    // ----- 복원 (실행 취소용) -----
+
+    private static Kanban.Core.Models.Card Snapshot(Kanban.Core.Models.Card card, IEnumerable<int> labelIds) => new()
+    {
+        Id = card.Id,
+        ListId = card.ListId,
+        Title = card.Title,
+        Description = card.Description,
+        DueDate = card.DueDate,
+        Position = card.Position,
+        Labels = labelIds.Select(id => new Kanban.Core.Models.Label { Id = id }).ToList(),
+        ChecklistItems = card.ChecklistItems.Select(i => new Kanban.Core.Models.ChecklistItem
+        {
+            Id = i.Id, Text = i.Text, IsDone = i.IsDone, Position = i.Position,
+        }).ToList(),
+    };
+
+    [Fact]
+    public async Task Deleted_card_is_restored_with_the_same_id_labels_checklist_and_due_date()
+    {
+        var repository = await CreateInitializedAsync();
+        var list = await repository.AddListAsync(await BoardIdAsync(repository), "To Do");
+        var card = await repository.AddCardAsync(list.Id, "A", "desc");
+        card.DueDate = new DateOnly(2031, 4, 5);
+        await repository.UpdateCardAsync(card);
+        await repository.SetCardLabelsAsync(card.Id, new[] { 2, 4 });
+        var one = await repository.AddChecklistItemAsync(card.Id, "one");
+        await repository.SetChecklistItemDoneAsync(one.Id, true);
+
+        var saved = (await repository.GetListsAsync(await BoardIdAsync(repository)))[0].Cards[0];
+        var snapshot = Snapshot(saved, saved.Labels.Select(l => l.Id));
+
+        await repository.DeleteCardAsync(card.Id);
+        Assert.Empty((await repository.GetListsAsync(await BoardIdAsync(repository)))[0].Cards);
+
+        await repository.RestoreCardAsync(snapshot);
+
+        var restored = Assert.Single((await repository.GetListsAsync(await BoardIdAsync(repository)))[0].Cards);
+        Assert.Equal(card.Id, restored.Id);
+        Assert.Equal("A", restored.Title);
+        Assert.Equal("desc", restored.Description);
+        Assert.Equal(new DateOnly(2031, 4, 5), restored.DueDate);
+        Assert.Equal(new[] { 2, 4 }, restored.Labels.Select(l => l.Id));
+        var item = Assert.Single(restored.ChecklistItems);
+        Assert.Equal(one.Id, item.Id);
+        Assert.True(item.IsDone);
+    }
+
+    [Fact]
+    public async Task Restoring_a_card_does_not_collide_with_cards_created_in_between()
+    {
+        var repository = await CreateInitializedAsync();
+        var list = await repository.AddListAsync(await BoardIdAsync(repository), "To Do");
+        var original = await repository.AddCardAsync(list.Id, "original", null);
+        var snapshot = Snapshot(original, Array.Empty<int>());
+
+        await repository.DeleteCardAsync(original.Id);
+        var newer = await repository.AddCardAsync(list.Id, "newer", null);   // 삭제한 Id를 재사용하지 않아야 한다.
+
+        await repository.RestoreCardAsync(snapshot);
+
+        Assert.NotEqual(original.Id, newer.Id);
+        var ids = (await repository.GetListsAsync(await BoardIdAsync(repository)))[0].Cards.Select(c => c.Id).ToList();
+        Assert.Contains(original.Id, ids);
+        Assert.Contains(newer.Id, ids);
+    }
+
+    [Fact]
+    public async Task Deleted_list_is_restored_with_its_cards_at_the_same_ids()
+    {
+        var repository = await CreateInitializedAsync();
+        var boardId = await BoardIdAsync(repository);
+        var list = await repository.AddListAsync(boardId, "Doomed");
+        var a = await repository.AddCardAsync(list.Id, "A", null);
+        var b = await repository.AddCardAsync(list.Id, "B", null);
+        await repository.SetCardLabelsAsync(a.Id, new[] { 1 });
+        await repository.AddChecklistItemAsync(b.Id, "item");
+
+        var saved = (await repository.GetListsAsync(boardId))[0];
+        var snapshot = new Kanban.Core.Models.BoardList
+        {
+            Id = saved.Id, BoardId = saved.BoardId, Name = saved.Name, Position = saved.Position,
+            Cards = saved.Cards.Select(c => Snapshot(c, c.Labels.Select(l => l.Id))).ToList(),
+        };
+
+        await repository.DeleteListAsync(list.Id);
+        Assert.Empty(await repository.GetListsAsync(boardId));
+
+        await repository.RestoreListAsync(snapshot);
+
+        var restored = Assert.Single(await repository.GetListsAsync(boardId));
+        Assert.Equal(list.Id, restored.Id);
+        Assert.Equal("Doomed", restored.Name);
+        Assert.Equal(new[] { a.Id, b.Id }, restored.Cards.Select(c => c.Id));
+        Assert.Equal(new[] { 1 }, restored.Cards[0].Labels.Select(l => l.Id));
+        Assert.Equal("item", Assert.Single(restored.Cards[1].ChecklistItems).Text);
+    }
 }
