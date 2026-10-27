@@ -48,6 +48,9 @@ public interface IBoardRepository
 
     Task<ChecklistItem> AddChecklistItemAsync(int cardId, string text, CancellationToken ct = default);
 
+    /// <summary>삭제했던 체크리스트 항목을 <b>원래 Id 그대로</b> 다시 만든다(실행 취소용).</summary>
+    Task RestoreChecklistItemAsync(ChecklistItem item, CancellationToken ct = default);
+
     Task SetChecklistItemDoneAsync(int itemId, bool isDone, CancellationToken ct = default);
 
     Task DeleteChecklistItemAsync(int itemId, CancellationToken ct = default);

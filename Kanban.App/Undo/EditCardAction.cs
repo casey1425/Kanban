@@ -19,6 +19,8 @@ public sealed class EditCardAction : IUndoableAction
         _after = after;
     }
 
+    public CardViewModel? DetailScope => null;
+
     public string Description => "카드 수정";
 
     public int? UndoBoardId => _boardId;

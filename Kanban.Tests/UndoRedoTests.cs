@@ -515,4 +515,233 @@ public sealed class UndoRedoTests : IDisposable
 
         Assert.All(board.Lists[0].Cards, c => Assert.False(c.IsMatch));
     }
+
+    // ----- 라벨 -----
+
+    private static int[] SelectedLabels(CardViewModel card) =>
+        card.LabelOptions.Where(o => o.IsSelected).Select(o => o.Id).ToArray();
+
+    [Fact]
+    public async Task Label_changes_can_be_undone_and_redone_in_order_and_are_persisted()
+    {
+        var app = await _app.StartAsync();
+        var board = await NewBoardAsync(app);
+        var card = await AddCardAsync(board.Lists[0], "A");
+        app.History.Clear();
+
+        await card.LabelOptions[0].ToggleCommand.ExecuteAsync(null);   // 1번 붙임
+        await card.LabelOptions[2].ToggleCommand.ExecuteAsync(null);   // 3번 붙임
+        await card.LabelOptions[0].ToggleCommand.ExecuteAsync(null);   // 1번 뗌
+        Assert.Equal(new[] { 3 }, SelectedLabels(card));
+
+        await UndoAsync(app);
+        Assert.Equal(new[] { 1, 3 }, SelectedLabels(card));
+        await UndoAsync(app);
+        Assert.Equal(new[] { 1 }, SelectedLabels(card));
+        await UndoAsync(app);
+        Assert.Empty(SelectedLabels(card));
+        Assert.Empty((await ReloadBoardAsync("T")).Lists[0].Cards[0].Labels);
+
+        await RedoAsync(app);
+        Assert.Equal(new[] { 1 }, SelectedLabels(card));
+        var reloaded = (await ReloadBoardAsync("T")).Lists[0].Cards[0];
+        Assert.Equal(new[] { 1 }, SelectedLabels(reloaded));
+    }
+
+    [Fact]
+    public async Task Undoing_a_label_change_updates_the_card_face_and_the_filter()
+    {
+        var app = await _app.StartAsync();
+        var board = await NewBoardAsync(app);
+        var card = await AddCardAsync(board.Lists[0], "A");
+        await card.LabelOptions[0].ToggleCommand.ExecuteAsync(null);
+        board.SelectedLabelFilter = board.LabelFilters.First(f => f.LabelId == 1);
+        Assert.True(card.IsMatch);
+        app.History.Clear();
+
+        await card.LabelOptions[0].ToggleCommand.ExecuteAsync(null);   // 라벨을 떼면 필터에서 사라진다
+        Assert.False(card.IsMatch);
+        Assert.False(card.HasLabels);
+
+        await UndoAsync(app);
+
+        Assert.True(card.IsMatch);
+        Assert.True(card.HasLabels);
+        Assert.Equal("긴급", card.Labels.Single().Name);
+    }
+
+    // ----- 체크리스트 -----
+
+    private static async Task AddItemAsync(CardViewModel card, string text)
+    {
+        card.NewChecklistText = text;
+        await card.AddChecklistItemCommand.ExecuteAsync(null);
+    }
+
+    private static string Items(CardViewModel card) =>
+        string.Join(",", card.Checklist.Select(i => $"{i.Text}{(i.IsDone ? "*" : "")}"));
+
+    [Fact]
+    public async Task Adding_a_checklist_item_can_be_undone_and_redone_with_the_same_id()
+    {
+        var app = await _app.StartAsync();
+        var board = await NewBoardAsync(app);
+        var card = await AddCardAsync(board.Lists[0], "A");
+        await AddItemAsync(card, "one");
+        app.History.Clear();
+
+        await AddItemAsync(card, "two");
+        var two = card.Checklist[1];
+        var idBefore = two.Id;
+        Assert.Equal("one,two", Items(card));
+
+        await UndoAsync(app);
+        Assert.Equal("one", Items(card));
+        Assert.Equal("0/1", card.ChecklistSummary);
+        Assert.Equal("one", Items((await ReloadBoardAsync("T")).Lists[0].Cards[0]));
+
+        await RedoAsync(app);
+        Assert.Equal("one,two", Items(card));
+        Assert.Same(two, card.Checklist[1]);
+        Assert.Equal(idBefore, two.Id);
+        Assert.Equal("one,two", Items((await ReloadBoardAsync("T")).Lists[0].Cards[0]));
+    }
+
+    [Fact]
+    public async Task Deleting_a_checklist_item_can_be_undone_at_the_same_position_and_state()
+    {
+        var app = await _app.StartAsync();
+        var board = await NewBoardAsync(app);
+        var card = await AddCardAsync(board.Lists[0], "A");
+        await AddItemAsync(card, "a");
+        await AddItemAsync(card, "b");
+        await AddItemAsync(card, "c");
+        card.Checklist[1].IsDone = true;
+        await card.Checklist[1].ToggleCommand.ExecuteAsync(null);
+        var b = card.Checklist[1];
+        app.History.Clear();
+
+        await b.DeleteCommand.ExecuteAsync(null);
+        Assert.Equal("a,c", Items(card));
+        Assert.Equal("0/2", card.ChecklistSummary);
+
+        await UndoAsync(app);
+
+        Assert.Equal("a,b*,c", Items(card));          // 가운데 자리, 체크 상태 그대로
+        Assert.Same(b, card.Checklist[1]);
+        Assert.Equal("1/3", card.ChecklistSummary);
+        Assert.Equal("a,b*,c", Items((await ReloadBoardAsync("T")).Lists[0].Cards[0]));
+
+        await RedoAsync(app);
+        Assert.Equal("a,c", Items(card));
+        Assert.Equal("a,c", Items((await ReloadBoardAsync("T")).Lists[0].Cards[0]));
+    }
+
+    [Fact]
+    public async Task Checking_an_item_can_be_undone_and_redone()
+    {
+        var app = await _app.StartAsync();
+        var board = await NewBoardAsync(app);
+        var card = await AddCardAsync(board.Lists[0], "A");
+        await AddItemAsync(card, "one");
+        await AddItemAsync(card, "two");
+        app.History.Clear();
+
+        card.Checklist[0].IsDone = true;                              // 체크박스 클릭을 흉내
+        await card.Checklist[0].ToggleCommand.ExecuteAsync(null);
+        card.Checklist[1].IsDone = true;
+        await card.Checklist[1].ToggleCommand.ExecuteAsync(null);
+        Assert.Equal("2/2", card.ChecklistSummary);
+        Assert.True(card.IsChecklistComplete);
+
+        await UndoAsync(app);
+        Assert.Equal("one*,two", Items(card));
+        Assert.Equal("1/2", card.ChecklistSummary);
+        Assert.False(card.IsChecklistComplete);
+        Assert.Equal("one*,two", Items((await ReloadBoardAsync("T")).Lists[0].Cards[0]));
+
+        await UndoAsync(app);
+        Assert.Equal("one,two", Items(card));
+
+        await RedoAsync(app);
+        await RedoAsync(app);
+        Assert.Equal("one*,two*", Items(card));
+        Assert.Equal("one*,two*", Items((await ReloadBoardAsync("T")).Lists[0].Cards[0]));
+    }
+
+    [Fact]
+    public async Task Label_and_checklist_changes_come_back_through_a_card_delete_and_restore()
+    {
+        var app = await _app.StartAsync();
+        var board = await NewBoardAsync(app);
+        var card = await AddCardAsync(board.Lists[0], "A");
+        app.History.Clear();
+
+        await card.LabelOptions[1].ToggleCommand.ExecuteAsync(null);   // 1) 라벨
+        await AddItemAsync(card, "item");                               // 2) 항목
+        await card.DeleteCommand.ExecuteAsync(null);                    // 3) 카드 삭제
+
+        await UndoAsync(app);                                           // 카드 복원(라벨과 항목 포함)
+        Assert.Equal(new[] { 2 }, SelectedLabels(card));
+        Assert.Equal("item", Items(card));
+
+        await UndoAsync(app);                                           // 항목 추가 취소
+        Assert.Equal("", Items(card));
+        await UndoAsync(app);                                           // 라벨 취소
+        Assert.Empty(SelectedLabels(card));
+
+        var reloaded = (await ReloadBoardAsync("T")).Lists[0].Cards.Single();
+        Assert.Empty(reloaded.Labels);
+        Assert.Empty(reloaded.Checklist);
+    }
+
+    // ----- 상세 패널이 열려 있을 때 -----
+
+    [Fact]
+    public async Task Label_and_checklist_changes_can_be_undone_while_the_detail_panel_is_open()
+    {
+        var app = await _app.StartAsync();
+        var board = await NewBoardAsync(app);
+        var card = await AddCardAsync(board.Lists[0], "A");
+        app.History.Clear();
+
+        card.OpenDetailCommand.Execute(null);
+        await card.LabelOptions[0].ToggleCommand.ExecuteAsync(null);
+        await AddItemAsync(card, "item");
+        Assert.True(app.UndoCommand.CanExecute(null));
+
+        await UndoAsync(app);                          // 패널을 닫지 않고 되돌린다
+        Assert.Equal("", Items(card));
+        Assert.Same(card, app.Detail?.Card);           // 패널은 그대로 열려 있다
+        Assert.True(app.UndoCommand.CanExecute(null));
+
+        await UndoAsync(app);
+        Assert.Empty(SelectedLabels(card));
+        Assert.False(app.UndoCommand.CanExecute(null));   // 더 되돌릴 게 없다
+        Assert.True(app.RedoCommand.CanExecute(null));
+
+        await RedoAsync(app);
+        Assert.Equal(new[] { 1 }, SelectedLabels(card));
+        Assert.Same(card, app.Detail?.Card);
+    }
+
+    [Fact]
+    public async Task While_the_panel_is_open_actions_on_other_cards_or_other_kinds_stay_blocked()
+    {
+        var app = await _app.StartAsync();
+        var board = await NewBoardAsync(app);
+        var first = await AddCardAsync(board.Lists[0], "first");
+        var second = await AddCardAsync(board.Lists[0], "second");
+        await first.LabelOptions[0].ToggleCommand.ExecuteAsync(null);   // 마지막 작업 = first의 라벨
+
+        second.OpenDetailCommand.Execute(null);                          // 다른 카드의 패널을 연다
+        Assert.False(app.UndoCommand.CanExecute(null));
+
+        await app.Detail!.CloseCommand.ExecuteAsync(null);
+        Assert.True(app.UndoCommand.CanExecute(null));
+
+        await second.DeleteCommand.ExecuteAsync(null);                   // 마지막 작업 = 카드 삭제(범위 없음)
+        first.OpenDetailCommand.Execute(null);
+        Assert.False(app.UndoCommand.CanExecute(null));
+    }
 }

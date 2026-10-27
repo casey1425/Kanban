@@ -151,10 +151,14 @@ public partial class MainWindowViewModel : ViewModelBase
         ? $"다시 실행: {action.Description} (Ctrl+Shift+Z)"
         : "다시 실행할 작업이 없어요";
 
-    // 상세 패널이 열려 있는 동안에는 되돌리지 않는다. 편집 중인 카드가 사라질 수 있기 때문이다.
-    private bool CanUndo() => History.CanUndo && Detail is null;
+    // 상세 패널이 열려 있는 동안에는 대부분 되돌리지 않는다. 편집 중인 카드가 사라질 수 있기 때문이다.
+    // 예외: 열려 있는 바로 그 카드의 라벨/체크리스트 변경은 패널 안에서 일어난 일이므로 되돌릴 수 있다.
+    private bool CanReplay(IUndoableAction? action) =>
+        action is not null && (Detail is null || ReferenceEquals(action.DetailScope, Detail.Card));
 
-    private bool CanRedo() => History.CanRedo && Detail is null;
+    private bool CanUndo() => CanReplay(History.NextUndo);
+
+    private bool CanRedo() => CanReplay(History.NextRedo);
 
     private void OnHistoryChanged()
     {

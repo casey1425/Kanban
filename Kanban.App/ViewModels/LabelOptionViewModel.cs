@@ -9,7 +9,7 @@ namespace Kanban.App.ViewModels;
 /// <summary>상세 패널에서 라벨을 켜고 끄는 칩. 카드마다 라벨 수만큼 하나씩 가진다.</summary>
 public partial class LabelOptionViewModel : ViewModelBase
 {
-    private readonly Func<Task> _onToggled;
+    private readonly Func<LabelOptionViewModel, Task> _onToggled;
 
     public int Id { get; }
     public string Name { get; }
@@ -18,7 +18,7 @@ public partial class LabelOptionViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isSelected;
 
-    public LabelOptionViewModel(Label model, bool isSelected, Func<Task> onToggled)
+    public LabelOptionViewModel(Label model, bool isSelected, Func<LabelOptionViewModel, Task> onToggled)
     {
         Id = model.Id;
         Name = model.Name;
@@ -31,6 +31,6 @@ public partial class LabelOptionViewModel : ViewModelBase
     private async Task ToggleAsync()
     {
         IsSelected = !IsSelected;
-        await _onToggled();
+        await _onToggled(this);
     }
 }

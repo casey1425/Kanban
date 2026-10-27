@@ -207,6 +207,20 @@ public sealed class BoardRepository : IBoardRepository
         return item;
     }
 
+    public async Task RestoreChecklistItemAsync(ChecklistItem item, CancellationToken ct = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(ct);
+        db.ChecklistItems.Add(new ChecklistItem
+        {
+            Id = item.Id,
+            CardId = item.CardId,
+            Text = item.Text,
+            IsDone = item.IsDone,
+            Position = item.Position,
+        });
+        await db.SaveChangesAsync(ct);
+    }
+
     public async Task SetChecklistItemDoneAsync(int itemId, bool isDone, CancellationToken ct = default)
     {
         await using var db = await _factory.CreateDbContextAsync(ct);

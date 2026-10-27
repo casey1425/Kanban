@@ -24,6 +24,8 @@ public sealed class MoveCardAction : IUndoableAction
         _toIndex = toIndex;
     }
 
+    public CardViewModel? DetailScope => null;
+
     public string Description => "카드 이동";
 
     public int? UndoBoardId => _fromList.BoardId;

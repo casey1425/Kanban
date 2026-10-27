@@ -23,6 +23,8 @@ public sealed class ListPresenceAction : IUndoableAction
         _wasAdded = wasAdded;
     }
 
+    public CardViewModel? DetailScope => null;
+
     public string Description => _wasAdded ? "리스트 추가" : "리스트 삭제";
 
     public int? UndoBoardId => _board.Id;

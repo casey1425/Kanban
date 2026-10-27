@@ -1,4 +1,5 @@
 using Kanban.App.Undo;
+using Kanban.App.ViewModels;
 
 namespace Kanban.Tests;
 
@@ -9,6 +10,7 @@ public sealed class UndoHistoryTests
         public FakeAction(string description) => Description = description;
 
         public string Description { get; }
+        public CardViewModel? DetailScope => null;
         public int? UndoBoardId => null;
         public int? RedoBoardId => null;
         public Task UndoAsync() => Task.CompletedTask;

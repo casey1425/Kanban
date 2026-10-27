@@ -104,11 +104,10 @@ public partial class CardViewModel : ViewModelBase
             Checklist.Add(CreateChecklistItem(item));
     }
 
-    private ChecklistItemViewModel CreateChecklistItem(ChecklistItem model) =>
-        new(model, _repository, NotifyChecklistChanged, RemoveChecklistItemAsync);
+    private ChecklistItemViewModel CreateChecklistItem(ChecklistItem model) => new(model, this, _repository);
 
     // 항목이 추가/삭제/체크될 때 요약(2/5 등)을 다시 그리게 한다.
-    private void NotifyChecklistChanged()
+    internal void NotifyChecklistChanged()
     {
         OnPropertyChanged(nameof(HasChecklist));
         OnPropertyChanged(nameof(ChecklistTotalCount));
@@ -129,17 +128,39 @@ public partial class CardViewModel : ViewModelBase
         return RunSafeAsync(async () =>
         {
             var model = await _repository.AddChecklistItemAsync(Id, text);
-            Checklist.Add(CreateChecklistItem(model));
+            var item = CreateChecklistItem(model);
+            Checklist.Add(item);
             NotifyChecklistChanged();
+            Record(new ChecklistItemPresenceAction(this, item, Checklist.Count - 1, wasAdded: true));
         }, "체크리스트 항목을 추가하지 못했어요");
     }
 
-    private Task RemoveChecklistItemAsync(ChecklistItemViewModel item) => RunSafeAsync(async () =>
+    /// <summary>항목을 삭제한다(DB와 화면). 실행 취소 기록을 남긴다.</summary>
+    internal Task RemoveChecklistItemAsync(ChecklistItemViewModel item) => RunSafeAsync(async () =>
+    {
+        var index = Checklist.IndexOf(item);
+        await RemoveChecklistItemWithoutHistoryAsync(item);
+
+        if (index >= 0)
+            Record(new ChecklistItemPresenceAction(this, item, index, wasAdded: false));
+    }, "체크리스트 항목을 삭제하지 못했어요");
+
+    /// <summary>항목을 삭제하되 기록은 남기지 않는다(기록을 되돌리는 쪽에서 쓴다).</summary>
+    internal async Task RemoveChecklistItemWithoutHistoryAsync(ChecklistItemViewModel item)
     {
         await _repository.DeleteChecklistItemAsync(item.Id);
         Checklist.Remove(item);
         NotifyChecklistChanged();
-    }, "체크리스트 항목을 삭제하지 못했어요");
+    }
+
+    /// <summary>삭제했던 항목을 index 위치에 되살린다(같은 Id, 같은 인스턴스). 기록은 남기지 않는다.</summary>
+    internal async Task RestoreChecklistItemAsync(ChecklistItemViewModel item, int index)
+    {
+        await _repository.RestoreChecklistItemAsync(item.ToSnapshot(Id));
+
+        Checklist.Insert(Math.Clamp(index, 0, Checklist.Count), item);
+        NotifyChecklistChanged();
+    }
 
     private void RefreshLabels()
     {
@@ -149,12 +170,33 @@ public partial class CardViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasLabels));
     }
 
-    private Task OnLabelToggledAsync()
+    // 라벨 칩을 눌렀을 때 호출된다(칩의 IsSelected는 이미 바뀐 상태). 저장에 성공하면 실행 취소 기록을 남긴다.
+    private async Task OnLabelToggledAsync(LabelOptionViewModel option)
     {
         RefreshLabels();
         Owner?.RefreshFilter(this);
-        var ids = LabelOptions.Where(o => o.IsSelected).Select(o => o.Id).ToList();
-        return RunSafeAsync(() => _repository.SetCardLabelsAsync(Id, ids), "라벨을 저장하지 못했어요");
+
+        var ids = SelectedLabelIds();
+        var selected = option.IsSelected;
+        var saved = await TryRunAsync(() => _repository.SetCardLabelsAsync(Id, ids), "라벨을 저장하지 못했어요");
+        if (saved)
+            Record(new ToggleLabelAction(this, option.Id, selected));
+    }
+
+    private List<int> SelectedLabelIds() => LabelOptions.Where(o => o.IsSelected).Select(o => o.Id).ToList();
+
+    /// <summary>실행 취소/다시 실행에서 라벨 하나를 붙이거나 떼고 저장한다(새 기록은 남기지 않는다).</summary>
+    internal async Task SetLabelSelectedAsync(int labelId, bool selected)
+    {
+        var option = LabelOptions.FirstOrDefault(o => o.Id == labelId);
+        if (option is null)
+            return;
+
+        option.IsSelected = selected;
+        RefreshLabels();
+        Owner?.RefreshFilter(this);
+
+        await _repository.SetCardLabelsAsync(Id, SelectedLabelIds());
     }
 
     private static string? NormalizeDescription(string? description) =>

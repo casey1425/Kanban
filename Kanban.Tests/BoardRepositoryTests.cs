@@ -318,4 +318,31 @@ public sealed class BoardRepositoryTests : IDisposable
         Assert.Equal(new[] { 1 }, restored.Cards[0].Labels.Select(l => l.Id));
         Assert.Equal("item", Assert.Single(restored.Cards[1].ChecklistItems).Text);
     }
+
+    [Fact]
+    public async Task Deleted_checklist_item_is_restored_with_the_same_id_state_and_position()
+    {
+        var repository = await CreateInitializedAsync();
+        var list = await repository.AddListAsync(await BoardIdAsync(repository), "To Do");
+        var card = await repository.AddCardAsync(list.Id, "A", null);
+        var first = await repository.AddChecklistItemAsync(card.Id, "first");
+        var second = await repository.AddChecklistItemAsync(card.Id, "second");
+        await repository.SetChecklistItemDoneAsync(first.Id, true);
+        var snapshot = new Kanban.Core.Models.ChecklistItem
+        {
+            Id = first.Id, CardId = card.Id, Text = "first", IsDone = true, Position = first.Position,
+        };
+
+        await repository.DeleteChecklistItemAsync(first.Id);
+        var newer = await repository.AddChecklistItemAsync(card.Id, "newer");   // 삭제한 Id를 재사용하면 안 된다
+        await repository.RestoreChecklistItemAsync(snapshot);
+
+        var items = (await repository.GetListsAsync(await BoardIdAsync(repository)))[0].Cards[0].ChecklistItems;
+        Assert.NotEqual(first.Id, newer.Id);
+        var restored = items.Single(i => i.Id == first.Id);
+        Assert.Equal("first", restored.Text);
+        Assert.True(restored.IsDone);
+        Assert.Equal(first.Position, restored.Position);
+        Assert.Contains(items, i => i.Id == second.Id);
+    }
 }
