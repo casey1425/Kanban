@@ -275,7 +275,8 @@ public partial class MainWindowViewModel : ViewModelBase
         _themeMode = settings.Current.Theme;
 
         WeakReferenceMessenger.Default.Register<MainWindowViewModel, OpenCardRequested>(
-            this, (vm, message) => vm.Detail = new CardDetailViewModel(message.Card, () => vm.Detail = null));
+            this, (vm, message) => vm.Detail = new CardDetailViewModel(
+                message.Card, () => vm.Detail = null, vm.UndoCommand, vm.RedoCommand));
 
         WeakReferenceMessenger.Default.Register<MainWindowViewModel, ErrorOccurred>(
             this, (vm, message) => vm.ErrorMessage = message.Message);

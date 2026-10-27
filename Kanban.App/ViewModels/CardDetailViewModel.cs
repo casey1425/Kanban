@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using System.Windows.Input;
 using CommunityToolkit.Mvvm.Input;
 
 namespace Kanban.App.ViewModels;
@@ -11,10 +12,19 @@ public partial class CardDetailViewModel : ViewModelBase
 
     public CardViewModel Card { get; }
 
-    public CardDetailViewModel(CardViewModel card, Action onClosed)
+    /// <summary>
+    /// 패널을 덮는 배경 때문에 사이드바의 실행 취소 버튼을 누를 수 없으므로, 같은 명령을 패널 안에서도 쓸 수 있게 받아 둔다.
+    /// </summary>
+    public ICommand UndoCommand { get; }
+
+    public ICommand RedoCommand { get; }
+
+    public CardDetailViewModel(CardViewModel card, Action onClosed, ICommand undoCommand, ICommand redoCommand)
     {
         Card = card;
         _onClosed = onClosed;
+        UndoCommand = undoCommand;
+        RedoCommand = redoCommand;
     }
 
     [RelayCommand]

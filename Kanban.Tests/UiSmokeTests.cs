@@ -296,6 +296,63 @@ public sealed class UiSmokeTests : IDisposable
         Assert.True(Find("다시 실행").IsEffectivelyEnabled);
     }
 
+    // ----- 상세 패널 안에서의 실행 취소 -----
+
+    [AvaloniaFact]
+    public async Task Ctrl_Z_undoes_a_label_change_while_the_detail_panel_stays_open()
+    {
+        var (window, viewModel) = await ShowWindowAsync();
+        var card = viewModel.SelectedBoard!.Lists[0].Cards[0];
+        viewModel.History.Clear();
+
+        card.OpenDetailCommand.Execute(null);
+        await card.LabelOptions[0].ToggleCommand.ExecuteAsync(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(card.HasLabels);
+
+        window.KeyPressQwerty(PhysicalKey.Z, RawInputModifiers.Control);
+        window.KeyReleaseQwerty(PhysicalKey.Z, RawInputModifiers.Control);
+        await WaitForIdleAsync(viewModel);
+
+        Assert.False(card.HasLabels);
+        Assert.Same(card, viewModel.Detail?.Card);   // 패널은 그대로
+    }
+
+    [AvaloniaFact]
+    public async Task The_detail_panel_has_working_undo_and_redo_buttons()
+    {
+        var (window, viewModel) = await ShowWindowAsync();
+        var card = viewModel.SelectedBoard!.Lists[0].Cards[0];
+        viewModel.History.Clear();
+        card.OpenDetailCommand.Execute(null);
+        await card.LabelOptions[2].ToggleCommand.ExecuteAsync(null);
+        Dispatcher.UIThread.RunJobs();
+
+        // 사이드바의 같은 이름 버튼은 패널 배경에 가려져 있으므로, 패널 안(CardDetailView)의 버튼을 찾는다.
+        var panel = window.GetVisualDescendants().OfType<CardDetailView>().Single();
+        Button InPanel(string text) => panel.GetVisualDescendants().OfType<Button>().Single(b => Equals(b.Content, text));
+
+        var undo = InPanel("실행 취소");
+        var redo = InPanel("다시 실행");
+        Assert.True(undo.IsEffectivelyEnabled);
+        Assert.False(redo.IsEffectivelyEnabled);
+
+        window.MouseDown(CenterOf(undo, window), MouseButton.Left);
+        window.MouseUp(CenterOf(undo, window), MouseButton.Left);
+        await WaitForIdleAsync(viewModel);
+
+        Assert.False(card.HasLabels);
+        Assert.False(undo.IsEffectivelyEnabled);
+        Assert.True(redo.IsEffectivelyEnabled);
+        Assert.NotNull(viewModel.Detail);
+
+        window.MouseDown(CenterOf(redo, window), MouseButton.Left);
+        window.MouseUp(CenterOf(redo, window), MouseButton.Left);
+        await WaitForIdleAsync(viewModel);
+
+        Assert.True(card.HasLabels);
+    }
+
     // 키 입력으로 시작된 비동기 명령(되돌리기)이 끝날 때까지 기다린다.
     private static async Task WaitForIdleAsync(MainWindowViewModel viewModel)
     {

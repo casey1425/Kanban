@@ -101,8 +101,12 @@
         </ScrollViewer>
 
         <!-- 닫기는 스크롤 영역 밖에 고정해서, 내용이 길어도 항상 보이게 한다 -->
-        <Button Grid.Row="1" Content="닫기" HorizontalAlignment="Right"
-                Command="{Binding CloseCommand}"/>
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6">
+            <!-- 패널이 열려 있는 동안 라벨/체크리스트 변경을 되돌린다(Ctrl+Z 와 같은 명령) -->
+            <Button Grid.Column="0" Content="실행 취소" Command="{Binding UndoCommand}"/>
+            <Button Grid.Column="1" Content="다시 실행" Command="{Binding RedoCommand}"/>
+            <Button Grid.Column="3" Content="닫기" Command="{Binding CloseCommand}"/>
+        </Grid>
         </Grid>
     </Border>
 </UserControl>
