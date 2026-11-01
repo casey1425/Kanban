@@ -30,6 +30,100 @@ public partial class BoardListViewModel : ViewModelBase
     [ObservableProperty]
     private string _name;
 
+    /// <summary>완료 리스트인지. 이 리스트의 카드는 "완료"로 집계된다.</summary>
+    [ObservableProperty]
+    private bool _isDoneList;
+
+    /// <summary>동시 진행 제한(WIP limit). null이면 제한 없음. 넘으면 경고만 하고 막지는 않는다.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasWipLimit))]
+    [NotifyPropertyChangedFor(nameof(IsOverWipLimit))]
+    [NotifyPropertyChangedFor(nameof(CardCountText))]
+    private int? _wipLimit;
+
+    public bool HasWipLimit => WipLimit is not null;
+
+    /// <summary>카드 수가 WIP 제한을 넘었는지. 필터로 숨겨진 카드도 센다(실제로 진행 중인 일의 수이므로).</summary>
+    public bool IsOverWipLimit => WipLimit is { } limit && Cards.Count > limit;
+
+    /// <summary>헤더에 보여 줄 카드 수. 제한이 있으면 "3 / 5", 없으면 "3".</summary>
+    public string CardCountText => WipLimit is { } limit ? $"{Cards.Count} / {limit}" : Cards.Count.ToString();
+
+    private void NotifyCardCountChanged()
+    {
+        OnPropertyChanged(nameof(IsOverWipLimit));
+        OnPropertyChanged(nameof(CardCountText));
+    }
+
+    // ----- 설정 편집(초안을 고치다가 저장하면 한 번에 반영) -----
+
+    [ObservableProperty]
+    private bool _isSettingsOpen;
+
+    [ObservableProperty]
+    private string _editName = string.Empty;
+
+    [ObservableProperty]
+    private bool _editIsDoneList;
+
+    // NumericUpDown.Value가 decimal?라서 같은 타입으로 둔다. 저장할 때 int?로 바꾼다.
+    [ObservableProperty]
+    private decimal? _editWipLimit;
+
+    private ListSettings CurrentSettings() => new(Name, IsDoneList, WipLimit);
+
+    [RelayCommand]
+    private void ToggleSettings()
+    {
+        if (IsSettingsOpen)
+        {
+            IsSettingsOpen = false;
+            return;
+        }
+
+        EditName = Name;
+        EditIsDoneList = IsDoneList;
+        EditWipLimit = WipLimit;
+        IsSettingsOpen = true;
+    }
+
+    [RelayCommand]
+    private void CancelSettings() => IsSettingsOpen = false;
+
+    [RelayCommand]
+    private void ClearWipLimit() => EditWipLimit = null;
+
+    [RelayCommand]
+    private Task SaveSettingsAsync()
+    {
+        IsSettingsOpen = false;
+
+        var name = string.IsNullOrWhiteSpace(EditName) ? Name : EditName.Trim();
+        // 비어 있거나 1 미만이면 "제한 없음". 터무니없이 큰 값은 999로 맞춘다.
+        int? limit = EditWipLimit is { } value && value >= 1 ? (int)Math.Min(value, 999) : null;
+
+        var before = CurrentSettings();
+        var after = new ListSettings(name, EditIsDoneList, limit);
+        if (after == before)
+            return Task.CompletedTask;
+
+        return RunSafeAsync(async () =>
+        {
+            await ApplySettingsAsync(after);
+            Record(new EditListSettingsAction(this, before, after));
+        }, "리스트 설정을 저장하지 못했어요");
+    }
+
+    /// <summary>설정을 저장하고 화면에 반영한다. 저장이 실패하면 화면은 바뀌지 않는다. 기록은 남기지 않는다.</summary>
+    internal async Task ApplySettingsAsync(ListSettings settings)
+    {
+        await _repository.UpdateListSettingsAsync(Id, settings.Name, settings.IsDoneList, settings.WipLimit);
+
+        Name = settings.Name;
+        IsDoneList = settings.IsDoneList;
+        WipLimit = settings.WipLimit;
+    }
+
     // 입력창과 양방향 바인딩된다. 값이 바뀌면 추가 버튼의 활성 상태도 다시 계산한다.
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(AddNewCardCommand))]
@@ -50,9 +144,14 @@ public partial class BoardListViewModel : ViewModelBase
         BoardId = model.BoardId;
         Position = model.Position;
         _name = model.Name;
+        _isDoneList = model.IsDoneList;
+        _wipLimit = model.WipLimit;
 
         foreach (var card in model.Cards.OrderBy(c => c.Position))
             AddCardFromModel(card);
+
+        // 카드가 추가·삭제·이동될 때마다 헤더의 카드 수와 제한 초과 경고를 갱신한다.
+        Cards.CollectionChanged += (_, _) => NotifyCardCountChanged();
     }
 
     /// <summary>삭제한 리스트를 DB에 같은 Id로 다시 만들 때 쓰는 전체 스냅샷(카드, 라벨, 체크리스트 포함). 실행 취소용.</summary>
@@ -62,6 +161,8 @@ public partial class BoardListViewModel : ViewModelBase
         BoardId = BoardId,
         Name = Name,
         Position = Position,
+        IsDoneList = IsDoneList,
+        WipLimit = WipLimit,
         Cards = Cards.Select((card, index) => card.ToSnapshot(Id, index)).ToList(),
     };
 

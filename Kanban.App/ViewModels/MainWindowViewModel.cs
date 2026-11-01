@@ -132,7 +132,10 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         var todo = await _repository.AddListAsync(boardId, "To Do");
         await _repository.AddListAsync(boardId, "In Progress");
-        await _repository.AddListAsync(boardId, "Done");
+
+        // 기본 구성의 "Done"은 완료 리스트다(통계에서 "완료"를 세는 기준).
+        var done = await _repository.AddListAsync(boardId, "Done");
+        await _repository.UpdateListSettingsAsync(done.Id, done.Name, isDoneList: true, wipLimit: null);
         return todo;
     }
 
