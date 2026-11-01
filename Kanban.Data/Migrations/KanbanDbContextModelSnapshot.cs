@@ -60,12 +60,18 @@ namespace Kanban.Data.Migrations
                     b.Property<int>("BoardId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("IsDoneList")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
                     b.Property<int>("Position")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("WipLimit")
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");

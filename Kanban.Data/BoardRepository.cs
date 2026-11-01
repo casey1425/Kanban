@@ -92,6 +92,18 @@ public sealed class BoardRepository : IBoardRepository
         return list;
     }
 
+    public async Task UpdateListSettingsAsync(
+        int listId, string name, bool isDoneList, int? wipLimit, CancellationToken ct = default)
+    {
+        await using var db = await _factory.CreateDbContextAsync(ct);
+        await db.Lists
+            .Where(l => l.Id == listId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(l => l.Name, name)
+                .SetProperty(l => l.IsDoneList, isDoneList)
+                .SetProperty(l => l.WipLimit, wipLimit), ct);
+    }
+
     public async Task RestoreListAsync(BoardList list, CancellationToken ct = default)
     {
         await using var db = await _factory.CreateDbContextAsync(ct);
@@ -103,6 +115,8 @@ public sealed class BoardRepository : IBoardRepository
             BoardId = list.BoardId,
             Name = list.Name,
             Position = list.Position,
+            IsDoneList = list.IsDoneList,
+            WipLimit = list.WipLimit,
             Cards = list.Cards.Select(c => CloneForInsert(c, labels)).ToList(),
         };
 

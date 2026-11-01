@@ -26,6 +26,9 @@ public interface IBoardRepository
 
     Task<BoardList> AddListAsync(int boardId, string name, CancellationToken ct = default);
 
+    /// <summary>리스트의 이름, 완료 리스트 여부, WIP 제한을 한 번에 저장한다.</summary>
+    Task UpdateListSettingsAsync(int listId, string name, bool isDoneList, int? wipLimit, CancellationToken ct = default);
+
     /// <summary>
     /// 삭제했던 리스트를 카드, 라벨 연결, 체크리스트까지 포함해 <b>원래 Id 그대로</b> 다시 만든다(실행 취소용).
     /// </summary>

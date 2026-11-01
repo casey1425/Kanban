@@ -62,5 +62,10 @@ public sealed class MigrationTests : IDisposable
         Assert.Equal(2, Scalar(upgraded, "SELECT COUNT(*) FROM CardLabel"));
         Assert.Equal(2, Scalar(upgraded, "SELECT COUNT(*) FROM ChecklistItems"));
         Assert.Equal(0, Scalar(upgraded, "SELECT COUNT(*) FROM pragma_foreign_key_check"));
+
+        // 리스트 설정: 이름이 Done인 기존 리스트만 완료 리스트로 표시되고, WIP 제한은 모두 없음이다.
+        Assert.Equal(1, Scalar(upgraded, "SELECT COUNT(*) FROM Lists WHERE IsDoneList = 1 AND Name = 'Done'"));
+        Assert.Equal(1, Scalar(upgraded, "SELECT COUNT(*) FROM Lists WHERE IsDoneList = 0 AND Name = 'To Do'"));
+        Assert.Equal(0, Scalar(upgraded, "SELECT COUNT(*) FROM Lists WHERE WipLimit IS NOT NULL"));
     }
 }

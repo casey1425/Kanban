@@ -345,4 +345,57 @@ public sealed class BoardRepositoryTests : IDisposable
         Assert.Equal(first.Position, restored.Position);
         Assert.Contains(items, i => i.Id == second.Id);
     }
+
+    // ----- 리스트 설정 -----
+
+    [Fact]
+    public async Task New_lists_are_not_done_lists_and_have_no_wip_limit()
+    {
+        var repository = await CreateInitializedAsync();
+
+        var list = await repository.AddListAsync(await BoardIdAsync(repository), "To Do");
+
+        Assert.False(list.IsDoneList);
+        Assert.Null(list.WipLimit);
+    }
+
+    [Fact]
+    public async Task List_settings_can_be_saved_and_cleared()
+    {
+        var repository = await CreateInitializedAsync();
+        var boardId = await BoardIdAsync(repository);
+        var list = await repository.AddListAsync(boardId, "To Do");
+
+        await repository.UpdateListSettingsAsync(list.Id, "Doing", isDoneList: true, wipLimit: 3);
+        var saved = Assert.Single(await repository.GetListsAsync(boardId));
+        Assert.Equal("Doing", saved.Name);
+        Assert.True(saved.IsDoneList);
+        Assert.Equal(3, saved.WipLimit);
+
+        await repository.UpdateListSettingsAsync(list.Id, "Doing", isDoneList: false, wipLimit: null);
+        saved = Assert.Single(await repository.GetListsAsync(boardId));
+        Assert.False(saved.IsDoneList);
+        Assert.Null(saved.WipLimit);
+    }
+
+    [Fact]
+    public async Task Restoring_a_list_keeps_its_settings()
+    {
+        var repository = await CreateInitializedAsync();
+        var boardId = await BoardIdAsync(repository);
+        var list = await repository.AddListAsync(boardId, "Done");
+        await repository.UpdateListSettingsAsync(list.Id, "Done", isDoneList: true, wipLimit: 5);
+        var saved = (await repository.GetListsAsync(boardId))[0];
+
+        await repository.DeleteListAsync(list.Id);
+        await repository.RestoreListAsync(new Kanban.Core.Models.BoardList
+        {
+            Id = saved.Id, BoardId = saved.BoardId, Name = saved.Name, Position = saved.Position,
+            IsDoneList = saved.IsDoneList, WipLimit = saved.WipLimit,
+        });
+
+        var restored = Assert.Single(await repository.GetListsAsync(boardId));
+        Assert.True(restored.IsDoneList);
+        Assert.Equal(5, restored.WipLimit);
+    }
 }
