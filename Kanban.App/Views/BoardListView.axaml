@@ -5,15 +5,80 @@
              x:DataType="vm:BoardListViewModel"
              DragDrop.AllowDrop="True">
 
-    <Border Width="280" Padding="10" CornerRadius="8"
+    <UserControl.Styles>
+        <!-- 헤더의 카드 수. WIP 제한을 넘으면 붉고 굵게 -->
+        <Style Selector="TextBlock.count">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Opacity" Value="0.7"/>
+        </Style>
+        <Style Selector="TextBlock.count.over">
+            <Setter Property="Foreground" Value="#C42B1C"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Opacity" Value="1"/>
+        </Style>
+        <!-- 제한을 넘은 리스트는 안쪽 붉은 테두리. 크기에 영향이 없는 그림자로 그린다 -->
+        <Style Selector="Border.list.wip-exceeded">
+            <Setter Property="BoxShadow" Value="inset 0 0 0 2 #C42B1C"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Border Classes="list" Classes.wip-exceeded="{Binding IsOverWipLimit}"
+            Width="280" Padding="10" CornerRadius="8"
             VerticalAlignment="Top"
             Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
         <StackPanel Spacing="8">
-            <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Grid.Column="0" Text="{Binding Name}" FontWeight="SemiBold"
-                           VerticalAlignment="Center" Margin="4,0"/>
-                <Button Grid.Column="1" Content="✕" Padding="6,2" Command="{Binding DeleteCommand}"/>
+            <!-- 헤더: 완료 표시 + 이름 / 카드 수(제한) / 설정 / 삭제 -->
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6"
+                            VerticalAlignment="Center" Margin="4,0">
+                    <TextBlock Text="✓" IsVisible="{Binding IsDoneList}" Foreground="#30A46C"
+                               FontWeight="Bold" VerticalAlignment="Center"
+                               ToolTip.Tip="완료 리스트"/>
+                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+                <TextBlock Grid.Column="1" Classes="count" Classes.over="{Binding IsOverWipLimit}"
+                           Text="{Binding CardCountText}" VerticalAlignment="Center"
+                           ToolTip.Tip="카드 수 / 동시 진행 제한(WIP)"/>
+                <Button Grid.Column="2" Content="설정" Padding="6,2" FontSize="12"
+                        Command="{Binding ToggleSettingsCommand}"/>
+                <Button Grid.Column="3" Content="✕" Padding="6,2" Command="{Binding DeleteCommand}"/>
             </Grid>
+
+            <!-- 설정 패널: 값을 고치다가 "저장"을 누르면 한 번에 반영(Esc는 취소) -->
+            <Border IsVisible="{Binding IsSettingsOpen}" Padding="10" CornerRadius="6"
+                    Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+                <StackPanel Spacing="8">
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="리스트 이름" FontSize="12" Opacity="0.7"/>
+                        <TextBox Text="{Binding EditName}">
+                            <TextBox.KeyBindings>
+                                <KeyBinding Gesture="Enter" Command="{Binding SaveSettingsCommand}"/>
+                                <KeyBinding Gesture="Escape" Command="{Binding CancelSettingsCommand}"/>
+                            </TextBox.KeyBindings>
+                        </TextBox>
+                    </StackPanel>
+
+                    <CheckBox Content="완료 리스트 (이 리스트의 카드는 완료로 집계)"
+                              IsChecked="{Binding EditIsDoneList}"/>
+
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="동시 진행 제한 (WIP)" FontSize="12" Opacity="0.7"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <NumericUpDown Width="130" Minimum="1" Maximum="999" Increment="1"
+                                           FormatString="0" Value="{Binding EditWipLimit}"/>
+                            <Button Content="제한 없음" Command="{Binding ClearWipLimitCommand}"/>
+                        </StackPanel>
+                        <TextBlock Text="넘으면 경고만 표시하고, 카드를 막지는 않아요"
+                                   FontSize="11" Opacity="0.6"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
+                        <Button Content="취소" Command="{Binding CancelSettingsCommand}"/>
+                        <Button Content="저장" Command="{Binding SaveSettingsCommand}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
 
             <!-- ItemTemplate을 지정하지 않으면 ViewLocator가 CardViewModel -> CardView로 연결한다 -->
             <ItemsControl ItemsSource="{Binding Cards}">

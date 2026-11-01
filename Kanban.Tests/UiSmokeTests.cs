@@ -353,6 +353,99 @@ public sealed class UiSmokeTests : IDisposable
         Assert.True(card.HasLabels);
     }
 
+    // ----- 리스트 설정 -----
+
+    private static BoardListView ListViewOf(Window window, BoardListViewModel list) =>
+        window.GetVisualDescendants().OfType<BoardListView>().Single(v => ReferenceEquals(v.DataContext, list));
+
+    private static void Click(Window window, Control control)
+    {
+        var point = CenterOf(control, window);
+        window.MouseDown(point, MouseButton.Left);
+        window.MouseUp(point, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaFact]
+    public async Task List_header_shows_the_card_count_and_marks_a_list_that_exceeds_its_wip_limit()
+    {
+        var (window, viewModel) = await ShowWindowAsync();
+        var list = viewModel.SelectedBoard!.Lists[0];
+        var view = ListViewOf(window, list);
+
+        string CountText() => view.GetVisualDescendants().OfType<TextBlock>()
+            .Single(t => t.Classes.Contains("count")).Text!;
+        Border Frame() => view.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("list"));
+
+        Assert.Equal("1", CountText());               // 안내 카드 1장
+        Assert.DoesNotContain("wip-exceeded", Frame().Classes);
+
+        list.ToggleSettingsCommand.Execute(null);
+        list.EditWipLimit = 1;
+        await list.SaveSettingsCommand.ExecuteAsync(null);
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal("1 / 1", CountText());
+        Assert.DoesNotContain("wip-exceeded", Frame().Classes);
+
+        list.NewCardTitle = "second";
+        await list.AddNewCardCommand.ExecuteAsync(null);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal("2 / 1", CountText());
+        Assert.Contains("wip-exceeded", Frame().Classes);
+    }
+
+    [AvaloniaFact]
+    public async Task Done_lists_show_a_check_mark()
+    {
+        var (window, viewModel) = await ShowWindowAsync();
+        viewModel.NewBoardName = "Second";
+        await viewModel.AddNewBoardCommand.ExecuteAsync(null);   // 기본 리스트 3개, 마지막이 Done
+        Dispatcher.UIThread.RunJobs();
+        var lists = viewModel.SelectedBoard!.Lists;
+
+        bool HasCheck(BoardListViewModel list) => ListViewOf(window, list).GetVisualDescendants()
+            .OfType<TextBlock>().Any(t => t.Text == "✓" && t.IsEffectivelyVisible);
+
+        Assert.False(HasCheck(lists[0]));
+        Assert.True(HasCheck(lists[2]));
+    }
+
+    [AvaloniaFact]
+    public async Task Clicking_settings_opens_the_panel_and_saving_applies_the_values_from_the_controls()
+    {
+        var (window, viewModel) = await ShowWindowAsync();
+        var list = viewModel.SelectedBoard!.Lists[0];
+        var view = ListViewOf(window, list);
+
+        Button InView(string text) => view.GetVisualDescendants().OfType<Button>().Single(b => Equals(b.Content, text));
+        Assert.False(list.IsSettingsOpen);
+        Assert.DoesNotContain(view.GetVisualDescendants().OfType<CheckBox>(), c => c.IsEffectivelyVisible);
+
+        Click(window, InView("설정"));
+        Assert.True(list.IsSettingsOpen);
+
+        // 컨트롤 값을 바꾸면 ViewModel 초안에 이어진다(양방향 바인딩).
+        var wip = view.GetVisualDescendants().OfType<NumericUpDown>().Single();
+        var done = view.GetVisualDescendants().OfType<CheckBox>().Single();
+        var name = view.GetVisualDescendants().OfType<TextBox>().First(t => t.Text == "To Do");
+        wip.Value = 4m;
+        done.IsChecked = true;
+        name.Text = "Backlog";
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(4m, list.EditWipLimit);
+        Assert.True(list.EditIsDoneList);
+        Assert.Equal("Backlog", list.EditName);
+
+        Click(window, InView("저장"));
+        await WaitForIdleAsync(viewModel);
+
+        Assert.False(list.IsSettingsOpen);
+        Assert.Equal("Backlog", list.Name);
+        Assert.True(list.IsDoneList);
+        Assert.Equal(4, list.WipLimit);
+    }
+
     // 키 입력으로 시작된 비동기 명령(되돌리기)이 끝날 때까지 기다린다.
     private static async Task WaitForIdleAsync(MainWindowViewModel viewModel)
     {
